@@ -1,0 +1,294 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ───────────────────────────────────────────────────────────────
+ * Lebaux · Actas y Recibos — Sistema de diseño basado en el logo
+ *
+ * Paleta extraída del logo oficial (public/logo.png y logo_recortado.png):
+ *   · Dorado/ámbar #FDC97D (60% del isotipo) → acento de marca (--primary)
+ *   · Gris medio #919596 (34% del isotipo)  → fondo/secundario
+ *
+ * Tipografía:
+ *   · Plus Jakarta Sans (variable) para toda la UI — geométrica, muy
+ *     legible en pantallas chicas y con un aire más "app 2025" que Inter.
+ *   · Space Grotesk (variable) para títulos display (encabezados grandes,
+ *     KPIs) — misma familia geométrica que la sans, pero con más carácter
+ *     en los detalles (la "G", la "S"), sin caer en un serif clásico.
+ *   · Fallback al stack del sistema si la red falla
+ * ─────────────────────────────────────────────────────────────── */
+
+/* Fuentes locales (vía @fontsource, sin dependencia de Google Fonts) */
+@import "@fontsource-variable/plus-jakarta-sans";
+@import "@fontsource-variable/space-grotesk";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-elevated: var(--elevated);
+  --color-elevated-foreground: var(--elevated-foreground);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+}
+
+:root {
+  /* Tema claro — día: crema cálido muy sutil con dorado del logo Lebaux.
+     Pensado para leerse bien a pleno sol en el celular de un vendedor
+     de aberturas que carga datos en obra. */
+  --font-sans: "Plus Jakarta Sans Variable", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Space Grotesk Variable", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  --radius: 0.875rem;
+
+  --background: oklch(0.985 0.004 75);
+  --foreground: oklch(0.18 0.008 60);
+
+  /* Cards con un toque más cálido y elevado que el fondo */
+  --card: oklch(1 0.003 75);
+  --card-foreground: oklch(0.18 0.008 60);
+
+  /* "Elevated": superficie por encima de la card (hover, overlays).
+     Token extra para no mezclar semanticas con `card`. */
+  --elevated: oklch(0.995 0.004 75);
+  --elevated-foreground: oklch(0.18 0.008 60);
+
+  --popover: oklch(1 0.003 75);
+  --popover-foreground: oklch(0.18 0.008 60);
+
+  /* Dorado del logo Lebaux (#FDC97D ≈ oklch 0.85 0.13 76).
+     En tema claro: dorado más oscuro (L=0.62) para contraste AA con texto blanco. */
+  --primary: oklch(0.62 0.14 70);
+  --primary-foreground: oklch(0.99 0.005 90);
+  --brand: oklch(0.62 0.14 70);
+  --brand-foreground: oklch(0.99 0.005 90);
+
+  --secondary: oklch(0.96 0.006 75);
+  --secondary-foreground: oklch(0.3 0.02 60);
+  --muted: oklch(0.96 0.006 75);
+  --muted-foreground: oklch(0.5 0.015 60);
+  --accent: oklch(0.94 0.035 70);
+  --accent-foreground: oklch(0.34 0.05 55);
+
+  --destructive: oklch(0.55 0.22 25);
+  --success: oklch(0.58 0.14 155);
+  --success-foreground: oklch(0.99 0.005 90);
+
+  --border: oklch(0.88 0.012 70);
+  --input: oklch(0.88 0.012 70);
+  --ring: oklch(0.62 0.14 70 / 0.55);
+}
+
+.dark {
+  /* ─── Premium oscuro: grafito cálido con dorado del logo como acento ─── */
+  --background: oklch(0.145 0.005 60); /* #0F0F0F cálido */
+  --foreground: oklch(0.97 0.004 75);
+
+  --card: oklch(0.185 0.006 60); /* #1A1A1A cálido */
+  --card-foreground: oklch(0.97 0.004 75);
+
+  --elevated: oklch(0.215 0.007 60); /* hover / overlays */
+  --elevated-foreground: oklch(0.99 0.004 75);
+
+  --popover: oklch(0.2 0.007 60);
+  --popover-foreground: oklch(0.97 0.004 75);
+
+  /* Dorado del logo (#FDC97D) tal cual — luminoso sobre grafito (AA con texto oscuro) */
+  --primary: oklch(0.85 0.13 76);
+  --primary-foreground: oklch(0.2 0.04 55);
+  --brand: oklch(0.85 0.13 76);
+  --brand-foreground: oklch(0.2 0.04 55);
+
+  --secondary: oklch(0.245 0.008 60);
+  --secondary-foreground: oklch(0.97 0.004 75);
+  --muted: oklch(0.245 0.008 60);
+  --muted-foreground: oklch(0.66 0.012 65);
+  --accent: oklch(0.3 0.04 70);
+  --accent-foreground: oklch(0.92 0.06 80);
+
+  --destructive: oklch(0.7 0.19 23);
+  --success: oklch(0.74 0.15 160);
+  --success-foreground: oklch(0.18 0.03 160);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.85 0.13 76 / 0.55);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    line-height: 1.5;
+    -webkit-tap-highlight-color: transparent;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    letter-spacing: -0.011em;
+  }
+
+  /* El overflow-x horizontal se contiene acá (no en html/body) porque
+     cualquier `overflow` en html/body los convierte en scrolling
+     containers y eso rompe el `position: sticky` de la navbar
+     (AppHeader): el sticky pasa a anclarse a ese contenedor en lugar
+     de al viewport, y como html/body no scrollean por sí mismos, la
+     navbar deja de comportarse como fija. */
+  #root {
+    overflow-x: hidden;
+  }
+
+  /* Fondo con un degradado sutil grafito→negro en dark,
+     y crema→blanco en light, para dar profundidad "premium". */
+  .dark body {
+    background-image:
+      radial-gradient(
+        ellipse 80% 50% at 50% -20%,
+        oklch(0.85 0.13 76 / 0.06),
+        transparent
+      ),
+      linear-gradient(180deg, oklch(0.16 0.006 60), oklch(0.13 0.005 60));
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  body:not(.dark body) {
+    background-image:
+      radial-gradient(
+        ellipse 80% 50% at 50% -20%,
+        oklch(0.85 0.13 76 / 0.04),
+        transparent
+      ),
+      linear-gradient(180deg, oklch(0.99 0.004 75), oklch(0.975 0.004 75));
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Títulos display con Space Grotesk — solo cuando se aplica la clase */
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+  }
+  .money {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* Glow dorado sutil para elementos "premium" destacados */
+  .glow-gold {
+    box-shadow:
+      0 0 0 1px oklch(0.85 0.13 76 / 0.2),
+      0 8px 32px -8px oklch(0.85 0.13 76 / 0.35);
+  }
+  .dark .glow-gold {
+    box-shadow:
+      0 0 0 1px oklch(0.85 0.13 76 / 0.3),
+      0 8px 32px -6px oklch(0.85 0.13 76 / 0.45);
+  }
+
+  /* Borde con gradiente dorado para cards "hero" */
+  .border-gold-gradient {
+    position: relative;
+  }
+  .border-gold-gradient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      oklch(0.85 0.13 76 / 0.6),
+      oklch(0.85 0.13 76 / 0.1) 50%,
+      oklch(0.85 0.13 76 / 0.4)
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Patrón de puntos sutil para fondos decorativos */
+  .bg-dots {
+    background-image: radial-gradient(
+      circle,
+      oklch(1 0 0 / 0.04) 1px,
+      transparent 1px
+    );
+    background-size: 16px 16px;
+  }
+
+  /* Scrollbar fino estilo premium */
+  .scrollbar-premium::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-premium::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-premium::-webkit-scrollbar-thumb {
+    background: var(--muted-foreground);
+    border-radius: 3px;
+    opacity: 0.3;
+  }
+  .scrollbar-premium::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+  }
+}

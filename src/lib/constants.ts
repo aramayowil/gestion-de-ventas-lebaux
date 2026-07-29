@@ -1,0 +1,84 @@
+/**
+ * lib/constants.ts — Catálogos compartidos.
+ */
+import type { ColorAbertura, FormaPago, LineaAbertura, ConfigEmpresa, ConfigSistema } from './types'
+
+export const LINEAS: LineaAbertura[] = ['Modena', 'Herrero', 'A30']
+export const COLORES: ColorAbertura[] = ['Blanco', 'Negro', 'Gris']
+export const FORMAS_PAGO: FormaPago[] = [
+  'Efectivo',
+  'Transferencia',
+  'Tarjeta',
+  'Mixto',
+  'A convenir',
+]
+
+/** Configuración por defecto de la empresa — sobrescribible desde Ajustes. */
+export const EMPRESA_DEFAULT: ConfigEmpresa = {
+  nombre: 'LEBAUX SRL',
+  rubro: 'Aberturas',
+  direccion: 'Av. Alem 1930, San Miguel de Tucumán',
+  telefono: '(381) 572-9129',
+  email: 'lebauxaberturas1930@gmail.com',
+}
+
+/** Configuración del sistema — sobrescribible desde Ajustes. */
+export const SISTEMA_DEFAULT: ConfigSistema = {
+  diasAutoRechazo: 14,
+  prefijoWhatsApp: '54',
+  moneda: 'ARS',
+  ivaPct: 0.105,
+}
+
+/** Etiquetas de estado de presupuesto (solo para UI). */
+export const ESTADO_PRESUPUESTO_LABEL: Record<
+  'borrador' | 'pendiente' | 'aceptado' | 'rechazado',
+  string
+> = {
+  borrador: 'Borrador',
+  pendiente: 'Pendiente',
+  aceptado: 'Aceptado',
+  rechazado: 'Rechazado',
+}
+
+/* ────────────── Agenda de fábrica ────────────── */
+
+/** Horas de turnos: 8 a 17 (9 turnos por día). */
+export const HORAS_TURNO = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+
+/** Días de la semana laborables: 1=Lunes … 6=Sábado (excluye domingo=0). */
+export const DIAS_LABORABLES = [1, 2, 3, 4, 5, 6]
+
+/** Etiquetas cortas de días de la semana (Lun-Dom). */
+export const DIA_SEMANA_CORTO: Record<number, string> = {
+  0: 'Dom',
+  1: 'Lun',
+  2: 'Mar',
+  3: 'Mié',
+  4: 'Jue',
+  5: 'Vie',
+  6: 'Sáb',
+}
+
+/** Etiquetas largas de días de la semana. */
+export const DIA_SEMANA_LARGO: Record<number, string> = {
+  0: 'Domingo',
+  1: 'Lunes',
+  2: 'Martes',
+  3: 'Miércoles',
+  4: 'Jueves',
+  5: 'Viernes',
+  6: 'Sábado',
+}
+
+/** Etiquetas y colores de estado de turno. */
+export const ESTADO_TURNO_LABEL: Record<
+  'pendiente' | 'en-fabrica' | 'listo' | 'entregado' | 'cancelado',
+  string
+> = {
+  pendiente: 'Pendiente',
+  'en-fabrica': 'En fábrica',
+  listo: 'Listo',
+  entregado: 'Entregado',
+  cancelado: 'Cancelado',
+}
