@@ -24,10 +24,7 @@ import {
   ChevronRight,
   ShoppingCart,
   Factory,
-  Settings,
-  Users,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useClientes, useObras, usePagos } from '@/hooks/queries'
@@ -52,7 +49,6 @@ interface Props {
 }
 
 export function HomePage({ onIr, onVerCliente }: Props) {
-  const navigate = useNavigate()
   const ajustesData = useAjustes(null).data ?? AJUSTES_DEFAULT
   const nombreEmpresa = ajustesData.empresa.nombre
   const diasAutoRechazo = ajustesData.sistema.diasAutoRechazo
@@ -161,7 +157,7 @@ export function HomePage({ onIr, onVerCliente }: Props) {
   return (
     <AppLayout onNuevoCliente={abrirNuevoCliente} withBottomBar>
       {/* ─── Hero compacto ─── */}
-      <section className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-4 sm:p-5 dark:bg-gradient-to-b dark:from-card/90 dark:to-card/60">
+      <section className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-4 sm:p-5 dark:bg-linear-to-b dark:from-card/90 dark:to-card/60">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0 flex-1">
             <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight">
