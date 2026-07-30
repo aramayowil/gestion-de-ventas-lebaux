@@ -25,12 +25,13 @@ import * as React from 'react'
 import { toast } from 'sonner'
 import { Send, ArrowRight } from 'lucide-react'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetBody,
+} from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { useAjustes, AJUSTES_DEFAULT, useMarcarPendientePresupuesto } from '@/hooks/queries'
 import {
@@ -115,114 +116,116 @@ export function PresupuestoModal({
   const estado = obra.estadoPresupuesto
 
   return (
-    <Dialog
+    <Sheet
       open={open}
       onOpenChange={(v) => {
         if (alFinalizar) return // no se puede cerrar: solo "Volver al cliente"
         if (!v) onClose()
       }}
     >
-      <DialogContent
+      <SheetContent
         className="sm:max-w-md"
         onEscapeKeyDown={(e) => alFinalizar && e.preventDefault()}
         onPointerDownOutside={(e) => alFinalizar && e.preventDefault()}
         showCloseButton={!alFinalizar}
       >
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl flex items-center gap-2">
+        <SheetHeader>
+          <SheetTitle className="font-display text-xl flex items-center gap-2">
             Presupuesto
             <EstadoPresupuestoBadge estado={estado} size="sm" />
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             {alFinalizar
               ? '¡Presupuesto guardado como pendiente! Imprimilo o envialo por WhatsApp.'
               : <>
                   Imprimí el presupuesto en PDF o envialo por WhatsApp a{' '}
                   <span className="money">{formatWhatsApp(cliente.telefonoWhatsApp, prefijoWhatsApp)}</span>.
                 </>}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        {/* Resumen del presupuesto */}
-        <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-4 space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Ítems</span>
-            <span className="font-medium">{obra.tipologias.length}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Total bruto</span>
-            <span className="money">${formatMoney(totales.totalBruto)}</span>
-          </div>
-          {totales.descuentoMonto > 0 && (
+        <SheetBody>
+          {/* Resumen del presupuesto */}
+          <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                Descuento ({Math.round(totales.descuentoPct * 100)}%)
-              </span>
-              <span className="money text-destructive">
-                −${formatMoney(totales.descuentoMonto)}
-              </span>
+              <span className="text-muted-foreground">Ítems</span>
+              <span className="font-medium">{obra.tipologias.length}</span>
             </div>
-          )}
-          {totales.incluyeIva && (
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                IVA ({Math.round(totales.ivaPct * 1000) / 10}%)
-              </span>
-              <span className="money text-success">
-                +${formatMoney(totales.ivaMonto)}
-              </span>
+              <span className="text-muted-foreground">Total bruto</span>
+              <span className="money">${formatMoney(totales.totalBruto)}</span>
             </div>
-          )}
-          <div className="flex items-center justify-between pt-2 border-t border-border/40 text-base font-semibold">
-            <span>Total</span>
-            <span className="money font-display">${formatMoney(totales.totalConIva)}</span>
+            {totales.descuentoMonto > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Descuento ({Math.round(totales.descuentoPct * 100)}%)
+                </span>
+                <span className="money text-destructive">
+                  −${formatMoney(totales.descuentoMonto)}
+                </span>
+              </div>
+            )}
+            {totales.incluyeIva && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  IVA ({Math.round(totales.ivaPct * 1000) / 10}%)
+                </span>
+                <span className="money text-success">
+                  +${formatMoney(totales.ivaMonto)}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2 border-t border-border/40 text-base font-semibold">
+              <span>Total</span>
+              <span className="money font-display">${formatMoney(totales.totalConIva)}</span>
+            </div>
           </div>
-        </div>
 
-        {/* Acciones principales */}
-        <div className="grid gap-2">
-          <PresupuestoPdfButton
-            cliente={cliente}
-            obra={obra}
-            totales={totales}
-            label="Imprimir PDF"
-            variant="default"
-            size="lg"
-            className="w-full"
-          />
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full"
-            onClick={handleEnviarWhatsApp}
-          >
-            <Send className="size-4" />
-            Enviar por WhatsApp
-          </Button>
-        </div>
+          {/* Acciones principales */}
+          <div className="grid gap-2">
+            <PresupuestoPdfButton
+              cliente={cliente}
+              obra={obra}
+              totales={totales}
+              label="Imprimir PDF"
+              variant="default"
+              size="lg"
+              className="w-full"
+            />
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={handleEnviarWhatsApp}
+            >
+              <Send className="size-4" />
+              Enviar por WhatsApp
+            </Button>
+          </div>
 
-        {/* Modo finalizar: única salida posible, navega hacia adelante */}
-        {alFinalizar ? (
-          <Button
-            variant="secondary"
-            size="lg"
-            className="w-full"
-            onClick={onVolverCliente}
-          >
-            Volver al cliente
-            <ArrowRight className="size-4" />
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full"
-            onClick={onClose}
-          >
-            Cerrar
-          </Button>
-        )}
-      </DialogContent>
-    </Dialog>
+          {/* Modo finalizar: única salida posible, navega hacia adelante */}
+          {alFinalizar ? (
+            <Button
+              variant="secondary"
+              size="lg"
+              className="w-full"
+              onClick={onVolverCliente}
+            >
+              Volver al cliente
+              <ArrowRight className="size-4" />
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={onClose}
+            >
+              Cerrar
+            </Button>
+          )}
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
   )
 }

@@ -6,17 +6,19 @@
  * Presupuesto (cotización, con resumen fijo abajo + IVA discriminable) o
  * una Venta (flujo normal, sin cambios).
  *
- * Mismo estilo que PresupuestoModal / RegistrarPagoModal: Dialog +
- * botones grandes en columna, pensado para mobile.
+ * Mismo estilo que PresupuestoModal / RegistrarPagoModal: Sheet (bottom
+ * sheet en mobile, dialog centrado en desktop) + botones grandes en
+ * columna, pensado para mobile.
  */
 import { FileText, ShoppingCart } from 'lucide-react'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetBody,
+} from '@/components/ui/sheet'
 import type { TipoObra } from '@/lib/types'
 
 interface Props {
@@ -32,16 +34,16 @@ export function TipoObraModal({ open, onClose, onElegir }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl">¿Qué querés cargar?</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent className="sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="font-display text-xl">¿Qué querés cargar?</SheetTitle>
+          <SheetDescription>
             Elegí si esta obra es un presupuesto para el cliente o una venta directa.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="grid gap-3">
+        <SheetBody className="grid gap-3">
           <button
             type="button"
             onClick={() => elegir('presupuesto')}
@@ -75,9 +77,9 @@ export function TipoObraModal({ open, onClose, onElegir }: Props) {
               </span>
             </span>
           </button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
   )
 }
 

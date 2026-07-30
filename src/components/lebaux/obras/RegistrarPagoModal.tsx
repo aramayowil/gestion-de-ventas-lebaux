@@ -7,13 +7,14 @@ import * as React from 'react'
 import { toast } from 'sonner'
 import { CheckCircle2 } from 'lucide-react'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+  SheetDescription,
+  SheetBody,
+} from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
@@ -113,21 +114,21 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
     : null
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl">
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent className="sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="font-display text-xl">
             {pagoConfirmado ? 'Pago registrado' : 'Registrar pago'}
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             {pagoConfirmado
               ? 'Generá el recibo de este pago.'
               : `Saldo pendiente: $${formatMoney(saldo)}`}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         {pagoConfirmado && cliente && totalesLuegoDePago ? (
-          <div className="space-y-4 py-2">
+          <SheetBody>
             <div className="rounded-lg border border-success/40 bg-success/10 p-4 flex items-start gap-3 ring-1 ring-success/20">
               <CheckCircle2
                 className="size-5 text-success shrink-0 mt-0.5"
@@ -164,79 +165,81 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
             >
               Cerrar
             </Button>
-          </div>
+          </SheetBody>
         ) : (
-          <div className="space-y-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="pago-monto">Monto</Label>
-              <div className="flex gap-2">
-                <MoneyInput
-                  id="pago-monto"
-                  allowDecimals
-                  value={monto}
-                  onChange={setMonto}
-                  placeholder="0"
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 shrink-0"
-                  onClick={() => setMonto(redondearMoneda(saldo))}
-                  disabled={saldo <= 0}
-                >
-                  Saldo completo
-                </Button>
-              </div>
-              {montoNum > saldo && (
-                <p className="text-xs text-destructive">
-                  Supera el saldo pendiente.
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+          <>
+            <SheetBody>
               <div className="grid gap-2">
-                <Label htmlFor="pago-fecha">Fecha</Label>
-                <Input
-                  id="pago-fecha"
-                  type="date"
-                  value={fecha}
-                  onChange={(e) => setFecha(e.target.value)}
+                <Label htmlFor="pago-monto">Monto</Label>
+                <div className="flex gap-2">
+                  <MoneyInput
+                    id="pago-monto"
+                    allowDecimals
+                    value={monto}
+                    onChange={setMonto}
+                    placeholder="0"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 shrink-0"
+                    onClick={() => setMonto(redondearMoneda(saldo))}
+                    disabled={saldo <= 0}
+                  >
+                    Saldo completo
+                  </Button>
+                </div>
+                {montoNum > saldo && (
+                  <p className="text-xs text-destructive">
+                    Supera el saldo pendiente.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="pago-fecha">Fecha</Label>
+                  <Input
+                    id="pago-fecha"
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Forma de pago</Label>
+                  <Select
+                    value={formaPago}
+                    onValueChange={(v) => setFormaPago(v as FormaPago)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FORMAS_PAGO.map((f) => (
+                        <SelectItem key={f} value={f}>
+                          {f}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="pago-nota">Nota (opcional)</Label>
+                <Textarea
+                  id="pago-nota"
+                  value={nota}
+                  onChange={(e) => setNota(e.target.value)}
+                  placeholder="Ej: Señal, segunda cuota, etc."
+                  className="min-h-[60px]"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label>Forma de pago</Label>
-                <Select
-                  value={formaPago}
-                  onValueChange={(v) => setFormaPago(v as FormaPago)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FORMAS_PAGO.map((f) => (
-                      <SelectItem key={f} value={f}>
-                        {f}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            </SheetBody>
 
-            <div className="grid gap-2">
-              <Label htmlFor="pago-nota">Nota (opcional)</Label>
-              <Textarea
-                id="pago-nota"
-                value={nota}
-                onChange={(e) => setNota(e.target.value)}
-                placeholder="Ej: Señal, segunda cuota, etc."
-                className="min-h-[60px]"
-              />
-            </div>
-
-            <DialogFooter>
+            <SheetFooter>
               <Button variant="outline" className="h-11" onClick={onClose}>
                 Cancelar
               </Button>
@@ -247,10 +250,10 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
               >
                 {crearPagoMutation.isPending ? 'Registrando...' : 'Confirmar pago'}
               </Button>
-            </DialogFooter>
-          </div>
+            </SheetFooter>
+          </>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

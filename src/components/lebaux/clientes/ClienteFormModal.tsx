@@ -8,13 +8,14 @@ import * as React from 'react'
 import { toast } from 'sonner'
 import { MessageCircle } from 'lucide-react'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+  SheetDescription,
+  SheetBody,
+} from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -142,19 +143,19 @@ export function ClienteFormModal({
   const telValido = telefono ? validarTelefonoArgentina(telefono) : null
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl">
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent className="sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="font-display text-xl">
             {clienteExistente ? 'Editar cliente' : 'Nuevo cliente'}
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             Solo necesitamos el nombre y un WhatsApp de contacto. El WhatsApp
             debe ser único: no pueden existir dos clientes con el mismo número.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="grid gap-4 py-2">
+        <SheetBody>
           <div className="grid gap-2">
             <Label htmlFor="cli-nombre">
               Nombre <span className="text-destructive">*</span>
@@ -204,9 +205,9 @@ export function ClienteFormModal({
               </p>
             )}
           </div>
-        </div>
+        </SheetBody>
 
-        <DialogFooter>
+        <SheetFooter>
           <Button variant="outline" className="h-11" onClick={onClose}>
             Cancelar
           </Button>
@@ -219,8 +220,8 @@ export function ClienteFormModal({
               ? 'Guardando...'
               : clienteExistente ? 'Guardar cambios' : 'Crear cliente'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }

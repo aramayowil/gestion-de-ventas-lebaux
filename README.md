@@ -5,9 +5,14 @@ Sistema de gestión de **clientes**, **obras**, **presupuestos** y **pagos** par
 **Vite + React 19 + TypeScript + React Router v6 + Tailwind CSS v4 + shadcn/ui**
 
 > Nota para lectores de este README generado/mantenido con ayuda de IA:
-> también existe [`AGENTS.md`](./AGENTS.md), pensado específicamente para que
-> un asistente de IA agarre contexto operativo del repo (convenciones,
-> comandos, dónde tocar qué) sin tener que releer todo el código primero.
+> también existe [`AGENTS.md`](./AGENTS.md), la guía completa para
+> cualquier agente de IA (o dev nuevo) que tenga que trabajar en este
+> repo — arquitectura, convenciones, dónde tocar qué, y dos principios
+> que priman sobre todo lo demás: código fácil de leer por sobre
+> eficiente, y diseño mobile-first por sobre desktop-first. Si notás
+> que este README describe algo distinto de lo que ves en el código
+> (pasa: quedó desactualizado en varios puntos), confiá en el código y,
+> si podés, actualizá ambos documentos.
 
 ## Qué hace el sistema
 
@@ -161,4 +166,3 @@ src/
 - Diálogos full-width en mobile.
 - Safe-area iOS/Android (`pt-safe`, `pb-safe`), targets táctiles 44px,
   `prefers-reduced-motion`.
-# gestion-de-ventas-lebaux

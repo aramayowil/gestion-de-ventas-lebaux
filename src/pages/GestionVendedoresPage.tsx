@@ -15,13 +15,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+  SheetBody,
+} from '@/components/ui/sheet'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -231,17 +232,17 @@ function CrearVendedorModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl">Crear vendedor</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent className="sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="font-display text-xl">Crear vendedor</SheetTitle>
+          <SheetDescription>
             Asigná un usuario y contraseña. Estas credenciales no podrán
             cambiarse después (excepto el nombre de usuario).
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="grid gap-4 py-2">
+        <SheetBody>
           <div className="grid gap-2">
             <Label htmlFor="v-nombre">Nombre para mostrar</Label>
             <Input
@@ -284,17 +285,17 @@ function CrearVendedorModal({
               autoComplete="new-password"
             />
           </div>
-        </div>
+        </SheetBody>
 
-        <DialogFooter>
+        <SheetFooter>
           <Button variant="outline" onClick={onClose} disabled={cargando}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={cargando}>
             <UserPlus className="size-4" />
             {cargando ? 'Creando...' : 'Crear vendedor'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }
 
