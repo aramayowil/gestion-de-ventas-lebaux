@@ -251,6 +251,7 @@ function CrearVendedorModal({
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Ej: Juan Pérez"
               autoFocus
+              autoComplete="off"
             />
           </div>
           <div className="grid gap-2">

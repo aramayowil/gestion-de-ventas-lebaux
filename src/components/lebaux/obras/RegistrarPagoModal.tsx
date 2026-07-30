@@ -205,6 +205,7 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
                     type="date"
                     value={fecha}
                     onChange={(e) => setFecha(e.target.value)}
+                    autoComplete="off"
                   />
                 </div>
                 <div className="grid gap-2">

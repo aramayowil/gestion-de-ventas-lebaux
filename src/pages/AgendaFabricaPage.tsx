@@ -447,6 +447,7 @@ export function AgendaFabricaPage({ onVolver, onVerCliente }: Props) {
                 value={asignarFecha}
                 onChange={(e) => setAsignarFecha(e.target.value)}
                 min={new Date().toISOString().slice(0, 10)}
+                autoComplete="off"
               />
             </div>
             <div className="grid gap-2">
@@ -745,6 +746,7 @@ function TurnoDetalleModal({
                     type="date"
                     value={nuevaFecha}
                     onChange={(e) => setNuevaFecha(e.target.value)}
+                    autoComplete="off"
                   />
                 </div>
                 <div className="grid gap-1">

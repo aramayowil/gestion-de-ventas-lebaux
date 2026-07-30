@@ -166,6 +166,7 @@ export function ClienteFormModal({
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Nombre y apellido"
               autoFocus
+              autoComplete="off"
             />
           </div>
 
@@ -182,7 +183,7 @@ export function ClienteFormModal({
               onChange={(e) => handleTelefonoChange(e.target.value)}
               placeholder="Ej: 381 572-9129"
               inputMode="tel"
-              autoComplete="tel"
+              autoComplete="off"
               className={cn(
                 telValido === false && 'border-destructive/50 focus-visible:ring-destructive/30',
                 telValido === true && 'border-success/50 focus-visible:ring-success/30',

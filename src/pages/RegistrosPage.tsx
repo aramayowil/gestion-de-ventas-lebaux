@@ -170,6 +170,7 @@ export function RegistrosPage({ onVolver, onVerCliente }: Props) {
             placeholder="Buscar por nombre de cliente…"
             aria-label="Buscar registros por cliente"
             className="h-11"
+            autoComplete="off"
           />
           {tab === 'presupuestos' && (
             <div className="flex flex-wrap gap-1.5">

@@ -236,6 +236,7 @@ export function AjustesPage({ onVolver }: Props) {
                     value={nuevoUsername}
                     onChange={(e) => setNuevoUsername(e.target.value)}
                     placeholder="mi_usuario"
+                    autoComplete="off"
                   />
                   <Button
                     onClick={handleGuardarUsername}
@@ -283,6 +284,7 @@ export function AjustesPage({ onVolver }: Props) {
                 value={empresaLocal.nombre}
                 onChange={(e) => setEmpresaLocal((s) => ({ ...s, nombre: e.target.value }))}
                 className="h-11"
+                autoComplete="off"
               />
             </div>
             <div className="grid gap-2">
@@ -292,6 +294,7 @@ export function AjustesPage({ onVolver }: Props) {
                 value={empresaLocal.rubro}
                 onChange={(e) => setEmpresaLocal((s) => ({ ...s, rubro: e.target.value }))}
                 className="h-11"
+                autoComplete="off"
               />
             </div>
             <div className="grid gap-2">
@@ -301,6 +304,7 @@ export function AjustesPage({ onVolver }: Props) {
                 value={empresaLocal.direccion}
                 onChange={(e) => setEmpresaLocal((s) => ({ ...s, direccion: e.target.value }))}
                 className="h-11"
+                autoComplete="off"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -312,7 +316,7 @@ export function AjustesPage({ onVolver }: Props) {
                   onChange={(e) => setEmpresaLocal((s) => ({ ...s, telefono: e.target.value }))}
                   className="h-11"
                   inputMode="tel"
-                  autoComplete="tel"
+                  autoComplete="off"
                 />
               </div>
               <div className="grid gap-2">
@@ -323,6 +327,7 @@ export function AjustesPage({ onVolver }: Props) {
                   value={empresaLocal.email}
                   onChange={(e) => setEmpresaLocal((s) => ({ ...s, email: e.target.value }))}
                   className="h-11"
+                  autoComplete="off"
                 />
               </div>
             </div>
@@ -390,6 +395,7 @@ export function AjustesPage({ onVolver }: Props) {
                   }
                   className="h-11"
                   inputMode="numeric"
+                  autoComplete="off"
                 />
                 <p className="text-[11px] text-muted-foreground">54 = Argentina</p>
               </div>
@@ -402,6 +408,7 @@ export function AjustesPage({ onVolver }: Props) {
                     setSistemaLocal((s) => ({ ...s, moneda: e.target.value }))
                   }
                   className="h-11"
+                  autoComplete="off"
                 />
               </div>
             </div>
