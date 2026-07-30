@@ -11,9 +11,19 @@
  * y color quedan colapsados detrás de un disclosure chico (con su valor
  * actual visible como preview), y el subtotal se muestra como un chip
  * discreto en esa misma línea en vez de un renglón propio.
+ *
+ * Mejoras de esta iteración:
+ *   · Duplicar ítem: para aberturas repetidas con alguna variante, evita
+ *     recargar todo desde cero (botón junto al de eliminar).
+ *   · Confirmación al eliminar: solo si el ítem ya tiene contenido
+ *     cargado (descripción o precio) — un ítem recién agregado y vacío
+ *     se borra directo, sin fricción.
+ *   · Autocompletado de descripción: sugiere descripciones ya tipeadas
+ *     por este vendedor en este dispositivo (descripciones-store), para
+ *     no re-escribir textos largos que se repiten seguido.
  */
 import * as React from 'react'
-import { Plus, Minus, Trash2, ChevronDown } from 'lucide-react'
+import { Plus, Minus, Trash2, Copy, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Label } from '@/components/ui/label'
@@ -25,19 +35,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { formatMoney, totalTipologia } from '@/lib/obra-totales'
 import type { Obra } from '@/lib/types'
 import { COLORES, LINEAS } from '@/lib/constants'
+import { useDescripcionesStore } from '@/lib/stores/descripciones-store'
 import { cn } from '@/lib/utils'
 
 export function TipologiasContent({
   tipologias,
   actualizarTipologia,
   eliminarTipologia,
+  duplicarTipologia,
 }: {
   tipologias: Obra['tipologias']
   actualizarTipologia: (id: string, patch: Partial<Obra['tipologias'][0]>) => void
   eliminarTipologia: (id: string) => void
+  duplicarTipologia: (id: string) => void
 }) {
   return (
     <>
@@ -48,6 +71,7 @@ export function TipologiasContent({
           tipologia={t}
           onChange={(patch) => actualizarTipologia(t.id, patch)}
           onRemove={() => eliminarTipologia(t.id)}
+          onDuplicate={() => duplicarTipologia(t.id)}
         />
       ))}
       {tipologias.length === 0 && (
@@ -82,11 +106,13 @@ function TipologiaRow({
   tipologia,
   onChange,
   onRemove,
+  onDuplicate,
 }: {
   index: number
   tipologia: Obra['tipologias'][0]
   onChange: (patch: Partial<Obra['tipologias'][0]>) => void
   onRemove: () => void
+  onDuplicate: () => void
 }) {
   // Colapsado por defecto: línea y color ya vienen con un valor por
   // default razonable (ver `nuevaTipologia()`), así que no hace falta
@@ -94,28 +120,53 @@ function TipologiaRow({
   const [detalleAbierto, setDetalleAbierto] = React.useState(false)
   const subtotal = totalTipologia(tipologia)
 
+  // Un ítem "vacío" (recién agregado, sin tocar) se borra directo sin
+  // confirmar. Uno con descripción o precio ya cargado sí confirma, para
+  // no perder trabajo por un toque accidental en la papelera.
+  const tieneContenido = tipologia.descripcion.trim().length > 0 || tipologia.precioUnitario > 0
+  const [confirmarEliminar, setConfirmarEliminar] = React.useState(false)
+
+  function pedirEliminar() {
+    if (tieneContenido) {
+      setConfirmarEliminar(true)
+    } else {
+      onRemove()
+    }
+  }
+
   return (
     <div className="rounded-xl border border-border/60 p-3 space-y-2.5 bg-card/60 backdrop-blur-sm">
       <div className="flex items-start gap-2">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/20 text-xs font-bold mt-1">
           {index + 1}
         </span>
-        <Textarea
+        <DescripcionInput
           value={tipologia.descripcion}
-          onChange={(e) => onChange({ descripcion: e.target.value })}
-          placeholder="Ej: Ventana corrediza 2 hojas — 1,20 x 1,10 m"
-          className="flex-1 min-h-11 resize-y"
+          onChange={(v) => onChange({ descripcion: v })}
         />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 size-11"
-          onClick={onRemove}
-          type="button"
-          aria-label={`Quitar ítem #${index + 1}`}
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        <div className="flex shrink-0 flex-col gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground hover:bg-elevated size-11"
+            onClick={onDuplicate}
+            type="button"
+            aria-label={`Duplicar ítem #${index + 1}`}
+            title="Duplicar ítem"
+          >
+            <Copy className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 size-11"
+            onClick={pedirEliminar}
+            type="button"
+            aria-label={`Quitar ítem #${index + 1}`}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Solo lo esencial para completar el ítem: cantidad y precio */}
@@ -221,6 +272,99 @@ function TipologiaRow({
               </SelectContent>
             </Select>
           </div>
+        </div>
+      )}
+
+      <AlertDialog open={confirmarEliminar} onOpenChange={setConfirmarEliminar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Quitar este ítem?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {tipologia.descripcion.trim()
+                ? `Se va a borrar "${tipologia.descripcion.trim().slice(0, 60)}${tipologia.descripcion.trim().length > 60 ? '…' : ''}" de la cotización.`
+                : 'Se va a borrar este ítem de la cotización.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onRemove}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Sí, quitar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
+/**
+ * Textarea de descripción con autocompletado por historial local
+ * (descripciones-store). Las sugerencias aparecen debajo mientras hay
+ * foco y coincidencias; elegir una reemplaza el texto completo.
+ */
+function DescripcionInput({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  const buscar = useDescripcionesStore((s) => s.buscar)
+  const [foco, setFoco] = React.useState(false)
+  const [sugerencias, setSugerencias] = React.useState<string[]>([])
+  const wrapperRef = React.useRef<HTMLDivElement>(null)
+
+  function handleChange(v: string) {
+    onChange(v)
+    setSugerencias(buscar(v))
+  }
+
+  // Cerrar sugerencias al hacer foco afuera (no solo con onBlur del
+  // textarea, para permitir el click en una sugerencia sin que el blur
+  // la cierre antes de registrar el click).
+  React.useEffect(() => {
+    if (!foco) return
+    function handleClickFuera(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setFoco(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickFuera)
+    return () => document.removeEventListener('mousedown', handleClickFuera)
+  }, [foco])
+
+  return (
+    <div ref={wrapperRef} className="relative flex-1 min-w-0">
+      <Textarea
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        onFocus={() => {
+          setFoco(true)
+          setSugerencias(buscar(value))
+        }}
+        placeholder="Ej: Ventana corrediza 2 hojas — 1,20 x 1,10 m"
+        className="min-h-11 resize-y"
+      />
+      {foco && sugerencias.length > 0 && (
+        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-border/60 bg-popover shadow-lg">
+          {sugerencias.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()} // evita el blur antes del click
+              onClick={() => {
+                onChange(s)
+                setSugerencias([])
+                setFoco(false)
+              }}
+              className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-elevated transition-colors"
+            >
+              {s}
+            </button>
+          ))}
         </div>
       )}
     </div>

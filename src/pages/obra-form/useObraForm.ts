@@ -33,11 +33,14 @@ import {
   useSiguienteNumeroRecibo,
 } from '@/hooks/queries'
 import { useBorradorStore } from '@/lib/stores/borrador-store'
+import { useDescripcionesStore } from '@/lib/stores/descripciones-store'
+import { usePlantillasStore, type PlantillaObra } from '@/lib/stores/plantillas-store'
 import { calcularTotalesObra, formatMoney } from '@/lib/obra-totales'
 import {
   nuevaObra,
   nuevaTipologia,
   nuevoPago,
+  uuid,
   type FormaPago,
   type Obra,
   type Pago,
@@ -75,6 +78,8 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
   const obtenerBorrador = useBorradorStore((s) => s.obtenerBorrador)
   const guardarBorrador = useBorradorStore((s) => s.guardarBorrador)
   const eliminarBorrador = useBorradorStore((s) => s.eliminarBorrador)
+  const registrarDescripcion = useDescripcionesStore((s) => s.registrar)
+  const guardarPlantilla = usePlantillasStore((s) => s.guardar)
 
   // Mientras editamos una obra existente, esperamos a que lleguen tanto la
   // obra como sus pagos antes de mostrar el formulario (evita "flash" de
@@ -241,10 +246,24 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
 
   const puedeFinalizar = tipologiasValidas && pagoInicialValido
 
+  // Mensaje breve para mostrar arriba del botón cuando está deshabilitado,
+  // así el vendedor entiende de un vistazo qué falta en vez de solo ver
+  // el botón gris. Prioriza el motivo de aberturas (más común / primer
+  // paso) sobre el de pago inicial.
+  const motivoNoPuedeFinalizar = !tipologiasValidas
+    ? obra.tipologias.length === 0
+      ? 'Agregá al menos una abertura para continuar.'
+      : 'Completá la descripción y cantidad de todas las aberturas.'
+    : !pagoInicialValido
+      ? `El pago inicial no puede superar el total ($${formatMoney(totales.totalConIva)}).`
+      : null
+
   const totalAberturas = obra.tipologias.reduce((acc, t) => acc + (t.cantidad || 0), 0)
   const aberturasSubtitle =
     obra.tipologias.length > 0
-      ? `${obra.tipologias.length} ítem${obra.tipologias.length === 1 ? '' : 's'} · ${totalAberturas} abertura${totalAberturas === 1 ? '' : 's'}`
+      ? `${obra.tipologias.length} ítem${obra.tipologias.length === 1 ? '' : 's'} · ${totalAberturas} abertura${totalAberturas === 1 ? '' : 's'}${
+          totales.totalConIva > 0 ? ` · $${formatMoney(totales.totalConIva)}` : ''
+        }`
       : 'Agregá al menos una abertura para empezar'
   const pagoSubtitle = `Total: $${formatMoney(totales.totalConIva)}`
 
@@ -267,6 +286,38 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
       tipologias: o.tipologias.filter((t) => t.id !== id),
     }))
   }
+  /** Inserta una copia del ítem justo después del original, con nuevo id.
+   * Útil para aberturas repetidas con alguna pequeña variante (medida,
+   * color) — evita recargar todo desde cero. */
+  function duplicarTipologia(id: string) {
+    setObra((o) => {
+      const idx = o.tipologias.findIndex((t) => t.id === id)
+      if (idx === -1) return o
+      const copia = { ...o.tipologias[idx], id: uuid() }
+      const tipologias = [...o.tipologias]
+      tipologias.splice(idx + 1, 0, copia)
+      return { ...o, tipologias }
+    })
+  }
+  /** Reemplaza las tipologías actuales por las de una plantilla guardada.
+   * Regenera IDs para que no colisionen con los ítems que hubiera antes. */
+  function aplicarPlantilla(plantilla: PlantillaObra) {
+    setObra((o) => ({
+      ...o,
+      tipologias: structuredClone(plantilla.tipologias).map((t) => ({ ...t, id: uuid() })),
+    }))
+    if (!isDesktop) setSeccionAbierta('aberturas')
+    toast.success(`Plantilla "${plantilla.nombre}" aplicada.`)
+  }
+  /** Guarda el set de aberturas actual como plantilla reutilizable. */
+  function guardarComoPlantilla(nombre: string) {
+    if (obra.tipologias.length === 0) {
+      toast.error('Agregá al menos una abertura antes de guardar la plantilla.')
+      return
+    }
+    guardarPlantilla(nombre, obra.tipologias)
+    toast.success(`Plantilla "${nombre}" guardada.`)
+  }
 
   /* ──────────── Validación común a ambos flujos ──────────── */
   function validarAntesDeFinalizar(): boolean {
@@ -279,6 +330,11 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
         `El pago inicial no puede superar el total ($${formatMoney(totales.totalConIva)}).`,
       )
       return false
+    }
+    // Alimentamos el historial de autocompletado con las descripciones
+    // de esta obra, para sugerirlas en la próxima cotización.
+    for (const t of obra.tipologias) {
+      registrarDescripcion(t.descripcion)
     }
     return true
   }
@@ -531,11 +587,15 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
     pagoInicialNum,
     pagoInicialValido,
     puedeFinalizar,
+    motivoNoPuedeFinalizar,
     aberturasSubtitle,
     pagoSubtitle,
     actualizarTipologia,
     agregarTipologia,
     eliminarTipologia,
+    duplicarTipologia,
+    aplicarPlantilla,
+    guardarComoPlantilla,
     handleEliminar,
     eliminandoObra: eliminarObraMutation.isPending,
     guardando: crearObraMutation.isPending || actualizarObraMutation.isPending,

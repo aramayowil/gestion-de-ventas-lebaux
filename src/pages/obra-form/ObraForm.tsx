@@ -49,6 +49,7 @@ import { TipologiasContent } from './TipologiasSection'
 import { AplicarDescuentosAccordion } from './AplicarDescuentosAccordion'
 import { ConfirmarPresupuestoModal } from './ConfirmarPresupuestoModal'
 import { FinalizarVentaModal } from './FinalizarVentaModal'
+import { PlantillasMenu } from './PlantillasMenu'
 import type { TipoObra } from '@/lib/types'
 
 interface Props {
@@ -86,10 +87,14 @@ export function ObraForm({ clienteId, obraId, onVolver, onIrAInicio, onFinalizad
     tipologiasValidas,
     pagoInicialNum,
     puedeFinalizar,
+    motivoNoPuedeFinalizar,
     aberturasSubtitle,
     actualizarTipologia,
     agregarTipologia,
     eliminarTipologia,
+    duplicarTipologia,
+    aplicarPlantilla,
+    guardarComoPlantilla,
     handleEliminar,
     eliminandoObra,
     guardando,
@@ -165,15 +170,22 @@ export function ObraForm({ clienteId, obraId, onVolver, onIrAInicio, onFinalizad
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center justify-between font-display">
                   <span>Aberturas a cotizar</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={agregarTipologia}
-                    type="button"
-                  >
-                    <Plus className="size-4" />
-                    <span className="hidden sm:inline">Agregar abertura</span>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <PlantillasMenu
+                      cantidadItemsActuales={obra.tipologias.length}
+                      onAplicar={aplicarPlantilla}
+                      onGuardar={guardarComoPlantilla}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={agregarTipologia}
+                      type="button"
+                    >
+                      <Plus className="size-4" />
+                      <span className="hidden sm:inline">Agregar abertura</span>
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -181,6 +193,7 @@ export function ObraForm({ clienteId, obraId, onVolver, onIrAInicio, onFinalizad
                   tipologias={obra.tipologias}
                   actualizarTipologia={actualizarTipologia}
                   eliminarTipologia={eliminarTipologia}
+                  duplicarTipologia={duplicarTipologia}
                 />
               </CardContent>
             </Card>
@@ -216,16 +229,25 @@ export function ObraForm({ clienteId, obraId, onVolver, onIrAInicio, onFinalizad
                   tipologias={obra.tipologias}
                   actualizarTipologia={actualizarTipologia}
                   eliminarTipologia={eliminarTipologia}
+                  duplicarTipologia={duplicarTipologia}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full h-11 border-dashed hover:bg-elevated/60"
-                  onClick={agregarTipologia}
-                >
-                  <Plus className="size-4" />
-                  Agregar abertura
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <PlantillasMenu
+                    cantidadItemsActuales={obra.tipologias.length}
+                    onAplicar={aplicarPlantilla}
+                    onGuardar={guardarComoPlantilla}
+                    triggerClassName="h-11 w-full"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 border-dashed hover:bg-elevated/60"
+                    onClick={agregarTipologia}
+                  >
+                    <Plus className="size-4" />
+                    Agregar
+                  </Button>
+                </div>
               </div>
             </AccordionSection>
 
@@ -288,7 +310,10 @@ export function ObraForm({ clienteId, obraId, onVolver, onIrAInicio, onFinalizad
 
       {/* ── Barra inferior fija: único botón de acción ── */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-card/95 backdrop-blur-md px-4 py-3 pb-safe">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto space-y-2">
+          {!puedeFinalizar && motivoNoPuedeFinalizar && (
+            <p className="text-xs text-center text-destructive">{motivoNoPuedeFinalizar}</p>
+          )}
           <Button
             className="w-full h-12 text-base font-semibold"
             onClick={accionBoton.onClick}

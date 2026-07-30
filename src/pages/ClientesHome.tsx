@@ -574,7 +574,7 @@ function ClienteCard({
                 onRegistrarPago(obraParaPago, pagosObraParaPago)
               }}
               aria-label={`Registrar pago de ${cliente.nombre}`}
-              className="flex flex-col items-center justify-center gap-1 bg-success text-success-foreground transition-colors hover:brightness-110"
+              className="flex flex-col items-center justify-center gap-1 bg-primary text-primary-foreground transition-colors hover:brightness-110"
               style={{ width: SWIPE_ACTION_WIDTH }}
             >
               <DollarSign className="size-5" aria-hidden="true" />
@@ -613,7 +613,14 @@ function ClienteCard({
           transition: drag.current ? 'none' : 'transform 200ms ease-out',
         }}
       >
-        <div className="flex items-center gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm hover:border-primary/40 hover:bg-card hover:shadow-md dark:bg-card/50 dark:hover:bg-card/80 transition-all">
+        <div
+          className={cn(
+            'flex items-center gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm transition-all',
+            offset > 0
+              ? 'shadow-none'
+              : 'hover:border-primary/40 hover:bg-card hover:shadow-md dark:bg-card/50 dark:hover:bg-card/80',
+          )}
+        >
           <ClientAvatar nombre={cliente.nombre} size="md" alert={estadoPeor === 'debe'} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
