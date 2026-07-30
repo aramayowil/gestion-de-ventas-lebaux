@@ -22,8 +22,16 @@
  * esté montada. Las 6 pantallas principales (Home, Dashboard, Clientes,
  * Agenda, Registros, Ajustes) la piden; las sub-páginas (detalle de
  * cliente, form de obra, pagos de obra) no.
+ *
+ * FAB "Nuevo cliente": vive acá (no en AppHeader) porque es un patrón
+ * mobile estándar — botón circular flotante, fijo abajo a la derecha,
+ * siempre a un toque del pulgar sin competir por espacio con el logo o
+ * el título en pantallas angostas. `position: fixed` + `bottom` que
+ * suma la altura real de la bottom bar (via safe-area) cuando está
+ * presente, para no taparla.
  */
 import * as React from 'react'
+import { Plus } from 'lucide-react'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { BottomTabBar, BOTTOM_TAB_BAR_SPACE } from '@/components/layout/BottomTabBar'
 import { cn } from '@/lib/utils'
@@ -34,7 +42,7 @@ interface AppLayoutProps {
   subtitle?: string
   onBack?: () => void
   onIrAInicio?: () => void
-  /** Click en el botón "Nuevo cliente" del header. Si no se provee, no se muestra. */
+  /** Click en el FAB "Nuevo cliente". Si no se provee, no se muestra. */
   onNuevoCliente?: () => void
   /** Acciones extras en el header (raro). */
   headerActions?: React.ReactNode
@@ -69,7 +77,6 @@ export function AppLayout({
           subtitle={subtitle}
           onBack={onBack}
           onIrAInicio={onIrAInicio}
-          onNuevoCliente={onNuevoCliente}
           actions={headerActions}
           maxWidth={maxWidth}
         />
@@ -84,6 +91,25 @@ export function AppLayout({
       >
         {children}
       </main>
+
+      {onNuevoCliente && (
+        <div
+          className={cn(
+            'pointer-events-none fixed inset-x-0 z-30 mx-auto flex justify-end px-4',
+            maxWidth,
+            withBottomBar ? 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))]' : 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))]',
+          )}
+        >
+          <button
+            type="button"
+            onClick={onNuevoCliente}
+            aria-label="Nuevo cliente"
+            className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 hover:shadow-xl"
+          >
+            <Plus className="size-6" />
+          </button>
+        </div>
+      )}
 
       {withBottomBar && (
         <div className="shrink-0">

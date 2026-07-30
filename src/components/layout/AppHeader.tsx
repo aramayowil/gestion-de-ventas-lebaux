@@ -3,9 +3,12 @@
  *
  * Solo contiene:
  *   · Logo de Lebaux (isotipo o logo completo según pantalla)
- *   · Botón "Nuevo cliente" (a la derecha)
  *   · Botón "Volver" opcional (sub-páginas)
  *   · ThemeToggle opcional (solo en Ajustes, donde se controla el tema)
+ *
+ * El botón "Nuevo cliente" vive como FAB (ver AppLayout.tsx) — se sacó
+ * del header porque en mobile competía por espacio con el logo/título,
+ * y un FAB fijo abajo a la derecha es más accesible con el pulgar.
  *
  * Como el tema ahora vive en Ajustes, no mostramos el toggle en cada
  * navbar para reducir carga visual.
@@ -17,7 +20,7 @@
  * components/layout/AppLayout.tsx.
  */
 import * as React from 'react'
-import { ArrowLeft, Plus, LogOut } from 'lucide-react'
+import { ArrowLeft, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth-store'
@@ -28,8 +31,6 @@ interface AppHeaderProps {
   subtitle?: string
   onBack?: () => void
   onIrAInicio?: () => void
-  /** Click en el botón "Nuevo cliente". Si no se provee, no se muestra. */
-  onNuevoCliente?: () => void
   /** Acciones extras (raro). */
   actions?: React.ReactNode
   maxWidth?: string
@@ -40,7 +41,6 @@ export function AppHeader({
   subtitle,
   onBack,
   onIrAInicio,
-  onNuevoCliente,
   actions,
   maxWidth = 'max-w-5xl',
 }: AppHeaderProps) {
@@ -113,13 +113,6 @@ export function AppHeader({
 
         <div className="flex shrink-0 items-center gap-1.5">
           {actions}
-          {onNuevoCliente && (
-            <Button onClick={onNuevoCliente} size="sm" className="h-9">
-              <Plus className="size-4" />
-              <span className="hidden sm:inline">Nuevo cliente</span>
-              <span className="sm:hidden">Nuevo</span>
-            </Button>
-          )}
           {/* Usuario + logout */}
           {currentUser && (
             <div className="flex items-center gap-1.5 pl-1.5 ml-1 border-l border-border/40">
