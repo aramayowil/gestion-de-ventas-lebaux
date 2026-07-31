@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Fallback de SPA: cualquier ruta que no sea un archivo real del build
+# (JS, CSS, imágenes) sirve index.html, para que React Router pueda
+# resolver la URL del lado del cliente. Sin esto, refrescar en una ruta
+# como /clientes/123 devuelve 404 porque ese archivo no existe en el
+# servidor. Ya no hace falta con el HashRouter (que este proyecto dejó de
+# usar), pero es obligatorio con BrowserRouter.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

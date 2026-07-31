@@ -34,7 +34,6 @@ import {
 } from '@/hooks/queries'
 import { useBorradorStore } from '@/lib/stores/borrador-store'
 import { useDescripcionesStore } from '@/lib/stores/descripciones-store'
-import { usePlantillasStore, type PlantillaObra } from '@/lib/stores/plantillas-store'
 import { calcularTotalesObra, formatMoney } from '@/lib/obra-totales'
 import {
   nuevaObra,
@@ -79,7 +78,6 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
   const guardarBorrador = useBorradorStore((s) => s.guardarBorrador)
   const eliminarBorrador = useBorradorStore((s) => s.eliminarBorrador)
   const registrarDescripcion = useDescripcionesStore((s) => s.registrar)
-  const guardarPlantilla = usePlantillasStore((s) => s.guardar)
 
   // Mientras editamos una obra existente, esperamos a que lleguen tanto la
   // obra como sus pagos antes de mostrar el formulario (evita "flash" de
@@ -298,25 +296,6 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
       tipologias.splice(idx + 1, 0, copia)
       return { ...o, tipologias }
     })
-  }
-  /** Reemplaza las tipologías actuales por las de una plantilla guardada.
-   * Regenera IDs para que no colisionen con los ítems que hubiera antes. */
-  function aplicarPlantilla(plantilla: PlantillaObra) {
-    setObra((o) => ({
-      ...o,
-      tipologias: structuredClone(plantilla.tipologias).map((t) => ({ ...t, id: uuid() })),
-    }))
-    if (!isDesktop) setSeccionAbierta('aberturas')
-    toast.success(`Plantilla "${plantilla.nombre}" aplicada.`)
-  }
-  /** Guarda el set de aberturas actual como plantilla reutilizable. */
-  function guardarComoPlantilla(nombre: string) {
-    if (obra.tipologias.length === 0) {
-      toast.error('Agregá al menos una abertura antes de guardar la plantilla.')
-      return
-    }
-    guardarPlantilla(nombre, obra.tipologias)
-    toast.success(`Plantilla "${nombre}" guardada.`)
   }
 
   /* ──────────── Validación común a ambos flujos ──────────── */
@@ -594,8 +573,6 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
     agregarTipologia,
     eliminarTipologia,
     duplicarTipologia,
-    aplicarPlantilla,
-    guardarComoPlantilla,
     handleEliminar,
     eliminandoObra: eliminarObraMutation.isPending,
     guardando: crearObraMutation.isPending || actualizarObraMutation.isPending,

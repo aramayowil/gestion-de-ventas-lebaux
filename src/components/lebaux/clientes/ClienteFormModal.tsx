@@ -6,7 +6,7 @@
  */
 import * as React from 'react'
 import { toast } from 'sonner'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, AlertTriangle } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 import { useClientes, useCreateCliente, useUpdateCliente } from '@/hooks/queries'
 import { useAjustes, AJUSTES_DEFAULT } from '@/hooks/queries'
@@ -54,6 +55,7 @@ export function ClienteFormModal({
 
   const [nombre, setNombre] = React.useState('')
   const [telefono, setTelefono] = React.useState('')
+  const [sinNumero, setSinNumero] = React.useState(false)
 
   React.useEffect(() => {
     if (open) {
@@ -61,8 +63,17 @@ export function ClienteFormModal({
       // Cargar el teléfono formateado (con espacios y guion) si existe
       const telCrudo = clienteExistente?.telefonoWhatsApp ?? ''
       setTelefono(telCrudo ? formatearTelefonoInput(telCrudo) : '')
+      // Si es un cliente existente sin número, dejamos el check tildado
+      setSinNumero(!!clienteExistente && !telCrudo)
     }
   }, [open, clienteExistente])
+
+  // Al tildar "sin número" limpiamos el campo para que no quede un
+  // teléfono a medio escribir dando vueltas.
+  function handleSinNumeroChange(checked: boolean) {
+    setSinNumero(checked)
+    if (checked) setTelefono('')
+  }
 
   async function handleGuardar() {
     const nombreTrim = nombre.trim()
@@ -70,29 +81,33 @@ export function ClienteFormModal({
       toast.error('El nombre del cliente es obligatorio.')
       return
     }
-    const telNormalizado = normalizarWhatsApp(telefono)
-    if (!telNormalizado) {
-      toast.error('El teléfono WhatsApp es obligatorio.')
-      return
-    }
-    if (!validarTelefonoArgentina(telNormalizado)) {
-      toast.error(
-        'El teléfono no es válido. Debe ser un número argentino de 10 dígitos ' +
-        '(sin el 0 inicial ni el 15). Ej: 381 572-9129.',
-      )
-      return
-    }
 
-    // Validar duplicado por WhatsApp
-    const dup = buscarDuplicadoWhatsApp(
-      telNormalizado,
-      clienteExistente?.id,
-    )
-    if (dup) {
-      toast.error(
-        `Ya existe un cliente "${dup.nombre}" con ese WhatsApp. No pueden repetirse.`,
+    let telNormalizado = ''
+    if (!sinNumero) {
+      telNormalizado = normalizarWhatsApp(telefono)
+      if (!telNormalizado) {
+        toast.error('El teléfono WhatsApp es obligatorio, o tildá "Sin número".')
+        return
+      }
+      if (!validarTelefonoArgentina(telNormalizado)) {
+        toast.error(
+          'El teléfono no es válido. Debe ser un número argentino de 10 dígitos ' +
+          '(sin el 0 inicial ni el 15). Ej: 381 572-9129.',
+        )
+        return
+      }
+
+      // Validar duplicado por WhatsApp (solo aplica si hay número)
+      const dup = buscarDuplicadoWhatsApp(
+        telNormalizado,
+        clienteExistente?.id,
       )
-      return
+      if (dup) {
+        toast.error(
+          `Ya existe un cliente "${dup.nombre}" con ese WhatsApp. No pueden repetirse.`,
+        )
+        return
+      }
     }
 
     try {
@@ -104,6 +119,9 @@ export function ClienteFormModal({
         }
         await actualizarClienteMutation.mutateAsync(cliente)
         toast.success(`Cliente "${cliente.nombre}" actualizado.`)
+        if (sinNumero) {
+          toast.warning(`"${cliente.nombre}" quedó guardado sin número de WhatsApp.`)
+        }
         onGuardado?.(cliente)
       } else {
         const nuevo = nuevoCliente({
@@ -115,6 +133,9 @@ export function ClienteFormModal({
         const creado = await crearClienteMutation.mutateAsync(nuevo)
         const clienteReal = creado ?? nuevo
         toast.success(`Cliente "${clienteReal.nombre}" creado.`)
+        if (sinNumero) {
+          toast.warning(`"${clienteReal.nombre}" quedó guardado sin número de WhatsApp.`)
+        }
         onGuardado?.(clienteReal)
       }
       onClose()
@@ -174,7 +195,7 @@ export function ClienteFormModal({
             <Label htmlFor="cli-tel">
               <span className="inline-flex items-center gap-1.5">
                 <MessageCircle className="size-3.5" aria-hidden="true" />
-                WhatsApp <span className="text-destructive">*</span>
+                WhatsApp {!sinNumero && <span className="text-destructive">*</span>}
               </span>
             </Label>
             <Input
@@ -184,12 +205,13 @@ export function ClienteFormModal({
               placeholder="Ej: 381 572-9129"
               inputMode="tel"
               autoComplete="off"
+              disabled={sinNumero}
               className={cn(
                 telValido === false && 'border-destructive/50 focus-visible:ring-destructive/30',
                 telValido === true && 'border-success/50 focus-visible:ring-success/30',
               )}
             />
-            {telefono && (
+            {telefono && !sinNumero && (
               <p
                 className={cn(
                   'text-[11px]',
@@ -203,6 +225,30 @@ export function ClienteFormModal({
                 ) : (
                   <>Formato esperado: XXX XXX-XXXX (10 dígitos, sin 0 ni 15)</>
                 )}
+              </p>
+            )}
+
+            <label
+              htmlFor="cli-sin-numero"
+              className="mt-1 flex items-center gap-2 cursor-pointer select-none"
+            >
+              <Checkbox
+                id="cli-sin-numero"
+                checked={sinNumero}
+                onCheckedChange={(v) => handleSinNumeroChange(v === true)}
+              />
+              <span className="text-sm text-muted-foreground">
+                Cliente sin número de WhatsApp
+              </span>
+            </label>
+
+            {sinNumero && (
+              <p className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="size-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  Vas a poder crear el cliente igual, pero va a quedar marcado
+                  con un aviso de "sin número" hasta que lo cargues.
+                </span>
               </p>
             )}
           </div>

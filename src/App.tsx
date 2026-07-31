@@ -7,7 +7,7 @@
  * componente que los necesita — no hace falta precargar nada acá.
  */
 import { useEffect } from 'react'
-import { HashRouter } from 'react-router-dom'
+import { BrowserRouter } from 'react-router-dom'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { Toaster } from '@/components/ui/sonner'
 import { Rutas } from '@/routes/routes'
@@ -29,7 +29,7 @@ export default function App() {
       enableSystem
       disableTransitionOnChange
     >
-      <HashRouter
+      <BrowserRouter
         future={{
           v7_startTransition: true,
           v7_relativeSplatPath: true,
@@ -42,7 +42,7 @@ export default function App() {
         ) : (
           <Rutas />
         )}
-      </HashRouter>
+      </BrowserRouter>
       <Toaster position="top-right" richColors closeButton />
     </ThemeProvider>
   )

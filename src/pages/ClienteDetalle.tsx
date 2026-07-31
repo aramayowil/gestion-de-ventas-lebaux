@@ -34,6 +34,8 @@ import {
   ArrowRightLeft,
   Factory,
   Share2,
+  AlertTriangle,
+  UserCog,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -153,6 +155,7 @@ export function ClienteDetalle({
   const { data: allUsers = [] } = useUsers()
   const vendedores = React.useMemo(() => allUsers.filter((u: User) => u.rol === 'vendedor'), [allUsers])
   const [modalCompartir, setModalCompartir] = React.useState(false)
+  const [modalReasignar, setModalReasignar] = React.useState(false)
 
   const obras = React.useMemo(
     () =>
@@ -279,12 +282,19 @@ export function ClienteDetalle({
               <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight truncate">
                 {cliente.nombre}
               </h2>
-              <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                <MessageCircle className="size-3.5 shrink-0" aria-hidden="true" />
-                <span className="truncate money">
-                  {formatWhatsApp(cliente.telefonoWhatsApp, prefijoWhatsApp) || '—'}
-                </span>
-              </p>
+              {cliente.telefonoWhatsApp ? (
+                <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                  <MessageCircle className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span className="truncate money">
+                    {formatWhatsApp(cliente.telefonoWhatsApp, prefijoWhatsApp) || '—'}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-sm text-amber-600 dark:text-amber-400 mt-0.5 flex items-center gap-1.5">
+                  <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span className="truncate">Sin número de WhatsApp cargado</span>
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {/* Botón compartir: solo vendedores propietarios pueden compartir */}
@@ -299,6 +309,18 @@ export function ClienteDetalle({
                   <span className="hidden sm:inline">Compartir</span>
                 </Button>
               )}
+              {/* Botón reasignar: solo el admin puede cambiar el vendedor propietario */}
+              {currentUser?.rol === 'admin' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={() => setModalReasignar(true)}
+                >
+                  <UserCog className="size-4" />
+                  <span className="hidden sm:inline">Reasignar</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -310,6 +332,20 @@ export function ClienteDetalle({
               </Button>
             </div>
           </div>
+
+          {/* Aviso de "compartido con" — visible para admin y para el propietario */}
+          {cliente.compartidoCon.length > 0 && (
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Share2 className="size-3.5 shrink-0" aria-hidden="true" />
+              Compartido con:{' '}
+              <span className="font-medium text-foreground">
+                {cliente.compartidoCon
+                  .map((id) => allUsers.find((u) => u.id === id)?.nombre)
+                  .filter(Boolean)
+                  .join(', ') || `${cliente.compartidoCon.length} vendedor(es)`}
+              </span>
+            </p>
+          )}
 
           {/* Stats */}
           <div className="mt-4 pt-4 border-t border-border/60 grid grid-cols-3 gap-3">
@@ -512,6 +548,30 @@ export function ClienteDetalle({
         onClose={() => setModalCompartir(false)}
       />
 
+      {/* Modal reasignar vendedor (solo admin) */}
+      <ReasignarVendedorModal
+        open={modalReasignar}
+        cliente={cliente}
+        vendedores={vendedores}
+        onGuardar={async (nuevoVendedorId) => {
+          try {
+            const compartidoConLimpio = cliente.compartidoCon.filter(
+              (id) => id !== nuevoVendedorId,
+            )
+            await actualizarClienteMutation.mutateAsync({
+              ...cliente,
+              vendedorId: nuevoVendedorId,
+              compartidoCon: compartidoConLimpio,
+            })
+            toast.success('Cliente reasignado.')
+            setModalReasignar(false)
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Error al reasignar el cliente.')
+          }
+        }}
+        onClose={() => setModalReasignar(false)}
+      />
+
       {/* Diálogo de eliminar obra */}
       <AlertDialog
         open={!!obraEliminar}
@@ -629,6 +689,113 @@ function CompartirClienteModal({
           <Button onClick={() => onGuardar(seleccionados)}>
             <Share2 className="size-4" />
             Guardar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/* ─── ReasignarVendedorModal ───
+ * Modal para que el admin cambie el vendedor propietario de un cliente
+ * (o se lo asigne a sí mismo / lo deje "sin asignar"). Distinto de
+ * "Compartir": esto cambia quién es el DUEÑO del cliente, no quién más
+ * puede verlo. Si el nuevo propietario ya estaba en `compartidoCon`, lo
+ * sacamos de ahí para no dejar un estado inconsistente (propietario
+ * compartido consigo mismo).
+ */
+function ReasignarVendedorModal({
+  open,
+  cliente,
+  vendedores,
+  onGuardar,
+  onClose,
+}: {
+  open: boolean
+  cliente: { id: string; nombre: string; vendedorId: string | null; compartidoCon: string[] }
+  vendedores: { id: string; nombre: string; username: string }[]
+  onGuardar: (nuevoVendedorId: string | null) => void
+  onClose: () => void
+}) {
+  const [seleccionado, setSeleccionado] = React.useState<string | null>(cliente.vendedorId)
+
+  React.useEffect(() => {
+    if (open) setSeleccionado(cliente.vendedorId)
+  }, [open, cliente.vendedorId])
+
+  const huboCambio = seleccionado !== cliente.vendedorId
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl flex items-center gap-2">
+            <UserCog className="size-5 text-primary" />
+            Reasignar cliente
+          </DialogTitle>
+          <DialogDescription>
+            Elegí a qué vendedor pertenece{' '}
+            <strong className="text-foreground">{cliente.nombre}</strong>. El
+            vendedor anterior deja de ser el propietario (si lo tenías
+            compartido con el nuevo propietario, se quita de esa lista
+            automáticamente).
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2 max-h-72 overflow-y-auto">
+          <label
+            className={cn(
+              'flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors',
+              seleccionado === null
+                ? 'border-primary/40 bg-primary/5'
+                : 'border-border/60 hover:bg-elevated/40',
+            )}
+          >
+            <input
+              type="radio"
+              name="reasignar-vendedor"
+              className="size-4 accent-primary"
+              checked={seleccionado === null}
+              onChange={() => setSeleccionado(null)}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">Sin asignar</p>
+              <p className="text-xs text-muted-foreground">Ningún vendedor propietario</p>
+            </div>
+          </label>
+          {vendedores.map((v) => {
+            const checked = seleccionado === v.id
+            return (
+              <label
+                key={v.id}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors',
+                  checked
+                    ? 'border-primary/40 bg-primary/5'
+                    : 'border-border/60 hover:bg-elevated/40',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="reasignar-vendedor"
+                  className="size-4 accent-primary"
+                  checked={checked}
+                  onChange={() => setSeleccionado(v.id)}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{v.nombre}</p>
+                  <p className="text-xs text-muted-foreground">@{v.username}</p>
+                </div>
+              </label>
+            )
+          })}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={() => onGuardar(seleccionado)} disabled={!huboCambio}>
+            <UserCog className="size-4" />
+            Reasignar
           </Button>
         </DialogFooter>
       </DialogContent>

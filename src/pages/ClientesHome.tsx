@@ -25,6 +25,9 @@ import {
   ArrowUpDown,
   Clock,
   DollarSign,
+  AlertTriangle,
+  Share2,
+  UserCog,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,7 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useClientes, useObras, usePagos } from '@/hooks/queries'
+import { useClientes, useObras, usePagos, useUsers } from '@/hooks/queries'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAjustes, AJUSTES_DEFAULT } from '@/hooks/queries'
 import { useNuevoClienteModal } from '@/hooks/use-nuevo-cliente-modal'
@@ -47,11 +50,12 @@ import {
   normalizarWhatsApp,
   diasHastaVencimiento,
 } from '@/lib/obra-totales'
-import type { Cliente, EstadoPago, Obra, Pago } from '@/lib/types'
+import type { Cliente, EstadoPago, Obra, Pago, User } from '@/lib/types'
 import { EstadoBadge } from '@/components/lebaux/clientes/EstadoBadge'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ClientAvatar } from '@/components/shared/ClientAvatar'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/lib/stores/auth-store'
 import { RegistrarPagoModal } from '@/components/lebaux/obras/RegistrarPagoModal'
 
 interface Props {
@@ -93,6 +97,19 @@ const TABS: { id: FiltroTab; label: string; icon: React.ElementType }[] = [
   { id: 'saldados', label: 'Saldados', icon: CheckCircle2 },
 ]
 
+/**
+ * Filtro de vendedor (solo admin): permite ver todos los clientes, solo
+ * los propios del admin, los de un vendedor puntual, o los que no tienen
+ * propietario asignado (legacy). Se filtra siempre por PROPIETARIO
+ * (vendedorId), no por compartidoCon — si un cliente fue compartido con
+ * otro vendedor, eso se indica aparte con una etiqueta "Compartido con…"
+ * en la card, pero no mueve al cliente de "dueño" para este filtro.
+ */
+type FiltroVendedorId = 'todos' | 'sin-asignar' | string // string = user id
+
+const FILTRO_VENDEDOR_TODOS: FiltroVendedorId = 'todos'
+const FILTRO_VENDEDOR_SIN_ASIGNAR: FiltroVendedorId = 'sin-asignar'
+
 /** Orden configurable de la lista. */
 type OrdenTab = 'estado' | 'nombre' | 'deuda' | 'reciente'
 
@@ -110,6 +127,17 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
   const { data: obras = [] } = useObras(clienteIds)
   const obraIds = React.useMemo(() => obras.map((o) => o.id), [obras])
   const { data: pagos = [] } = usePagos(obraIds)
+
+  const currentUser = useAuthStore((s) => s.currentUser)
+  const esAdmin = currentUser?.rol === 'admin'
+  // La lista de usuarios solo se pide si es admin: es lo único que la
+  // necesita (para armar el selector "Vendedor"); un vendedor normal no
+  // gana nada con este fetch extra.
+  const { data: allUsers = [] } = useUsers()
+  const vendedores = React.useMemo(
+    () => allUsers.filter((u: User) => u.rol === 'vendedor'),
+    [allUsers],
+  )
 
   const ajustesSistema = useAjustes(null).data?.sistema ?? AJUSTES_DEFAULT.sistema
   const prefijoWhatsApp = ajustesSistema.prefijoWhatsApp
@@ -159,6 +187,28 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
       params.delete('orden')
     } else {
       params.set('orden', next)
+    }
+    setSearchParams(params, { replace: true })
+  }
+
+  // Filtro de vendedor (solo admin), también en la URL (?vend=<id-de-un-
+  // vendedor-o-del-admin>, o ?vend=sin-asignar). No aplica para un
+  // vendedor normal: su propia lista ya viene recortada por RLS.
+  const vendParam = searchParams.get('vend')
+  const filtroVendedor: FiltroVendedorId = !esAdmin
+    ? FILTRO_VENDEDOR_TODOS
+    : vendParam === FILTRO_VENDEDOR_SIN_ASIGNAR
+      ? FILTRO_VENDEDOR_SIN_ASIGNAR
+      : vendParam && (vendParam === currentUser?.id || vendedores.some((v) => v.id === vendParam))
+        ? vendParam
+        : FILTRO_VENDEDOR_TODOS
+
+  const setFiltroVendedor = (next: FiltroVendedorId) => {
+    const params = new URLSearchParams(searchParams)
+    if (next === FILTRO_VENDEDOR_TODOS) {
+      params.delete('vend')
+    } else {
+      params.set('vend', next)
     }
     setSearchParams(params, { replace: true })
   }
@@ -246,23 +296,60 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
     }
   }, [])
 
-  /* ─── Conteo por tab (para el numerito, como "no leídos" de WhatsApp) ─── */
+  /** Un resumen de cliente pasa (o no) el filtro de vendedor propietario.
+   * Siempre filtra por PROPIETARIO (vendedorId), nunca por compartidoCon —
+   * ver comentario en el tipo FiltroVendedorId más arriba. */
+  const pasaFiltroVendedor = React.useCallback((r: ResumenCliente) => {
+    if (!esAdmin || filtroVendedor === FILTRO_VENDEDOR_TODOS) return true
+    if (filtroVendedor === FILTRO_VENDEDOR_SIN_ASIGNAR) return !r.cliente.vendedorId
+    return r.cliente.vendedorId === filtroVendedor
+  }, [esAdmin, filtroVendedor])
+
+  /* ─── Conteo por tab (para el numerito, como "no leídos" de WhatsApp) ───
+   * Respeta el filtro de vendedor activo, para que los números tengan
+   * sentido cuando el admin está viendo la lista de un vendedor puntual. */
   const conteos = React.useMemo(() => {
     const base: Record<FiltroTab, number> = {
-      todos: resumenClientes.length,
+      todos: 0,
       deuda: 0,
       ventas: 0,
       presupuestos: 0,
       saldados: 0,
     }
     for (const r of resumenClientes) {
+      if (!pasaFiltroVendedor(r)) continue
+      base.todos++
       if (pasaTab(r, 'deuda')) base.deuda++
       if (pasaTab(r, 'ventas')) base.ventas++
       if (pasaTab(r, 'presupuestos')) base.presupuestos++
       if (pasaTab(r, 'saldados')) base.saldados++
     }
     return base
-  }, [resumenClientes, pasaTab])
+  }, [resumenClientes, pasaTab, pasaFiltroVendedor])
+
+  /** Conteo de clientes por vendedor (propietario), para mostrar el
+   * numerito al lado de cada nombre en el selector. Ignora la tab de
+   * estado activa (siempre cuenta el total de esa cartera). */
+  const conteosPorVendedor = React.useMemo(() => {
+    const mapa = new Map<string, number>()
+    let sinAsignar = 0
+    for (const c of clientes) {
+      if (!c.vendedorId) {
+        sinAsignar++
+        continue
+      }
+      mapa.set(c.vendedorId, (mapa.get(c.vendedorId) ?? 0) + 1)
+    }
+    return { porId: mapa, sinAsignar, total: clientes.length }
+  }, [clientes])
+
+  /** Texto mostrado en el botón del selector de vendedor. */
+  const filtroVendedorLabel = React.useMemo(() => {
+    if (filtroVendedor === FILTRO_VENDEDOR_TODOS) return 'Todos los vendedores'
+    if (filtroVendedor === FILTRO_VENDEDOR_SIN_ASIGNAR) return 'Sin asignar'
+    if (filtroVendedor === currentUser?.id) return 'Mis clientes'
+    return vendedores.find((v) => v.id === filtroVendedor)?.nombre ?? 'Todos los vendedores'
+  }, [filtroVendedor, currentUser, vendedores])
 
   const comparador = React.useCallback((a: ResumenCliente, b: ResumenCliente): number => {
     const ordenEstado: Record<EstadoPago, number> = { debe: 0, pagado: 1, 'sin-datos': 2 }
@@ -284,11 +371,12 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
     }
   }, [ordenTab])
 
-  /* ─── Búsqueda por nombre o WhatsApp + tab activa + orden ─── */
+  /* ─── Búsqueda por nombre o WhatsApp + tab activa + vendedor + orden ─── */
   const filtrados = React.useMemo(() => {
     const q = normalizarTexto(busqueda)
     return resumenClientes
       .filter((r) => {
+        if (!pasaFiltroVendedor(r)) return false
         if (!pasaTab(r, tab)) return false
         if (!q) return true
         if (normalizarTexto(r.cliente.nombre).includes(q)) return true
@@ -298,7 +386,7 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
         return false
       })
       .sort(comparador)
-  }, [resumenClientes, busqueda, tab, pasaTab, comparador])
+  }, [resumenClientes, busqueda, tab, pasaTab, pasaFiltroVendedor, comparador])
 
   const { abrirNuevoCliente, modalNuevoCliente } = useNuevoClienteModal(
     (cliente) => onVerCliente(cliente.id),
@@ -332,6 +420,72 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
               autoComplete="off"
             />
           </div>
+
+          {/* Selector de vendedor: solo para admin. Combina con las tabs
+              de estado de abajo (ej. "Vendedor1" + "Con deuda"). */}
+          {esAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Filtrar clientes por vendedor"
+                  className="flex items-center gap-2 h-9 w-full rounded-lg border border-border/60 bg-card/60 px-3 text-xs sm:text-sm text-foreground hover:bg-elevated transition-colors"
+                >
+                  <UserCog className="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                  <span className="flex-1 min-w-0 text-left truncate">
+                    {filtroVendedorLabel}
+                  </span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                <DropdownMenuItem
+                  onClick={() => setFiltroVendedor(FILTRO_VENDEDOR_TODOS)}
+                  className={cn(filtroVendedor === FILTRO_VENDEDOR_TODOS && 'text-primary font-medium')}
+                >
+                  Todos
+                  <span className="ml-auto text-xs text-muted-foreground money">
+                    {conteosPorVendedor.total}
+                  </span>
+                </DropdownMenuItem>
+                {currentUser && (
+                  <DropdownMenuItem
+                    onClick={() => setFiltroVendedor(currentUser.id)}
+                    className={cn(filtroVendedor === currentUser.id && 'text-primary font-medium')}
+                  >
+                    Mis clientes
+                    <span className="ml-auto text-xs text-muted-foreground money">
+                      {conteosPorVendedor.porId.get(currentUser.id) ?? 0}
+                    </span>
+                  </DropdownMenuItem>
+                )}
+                {vendedores
+                  .filter((v) => v.id !== currentUser?.id)
+                  .map((v) => (
+                    <DropdownMenuItem
+                      key={v.id}
+                      onClick={() => setFiltroVendedor(v.id)}
+                      className={cn(filtroVendedor === v.id && 'text-primary font-medium')}
+                    >
+                      <span className="truncate">{v.nombre}</span>
+                      <span className="ml-auto shrink-0 text-xs text-muted-foreground money">
+                        {conteosPorVendedor.porId.get(v.id) ?? 0}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                {conteosPorVendedor.sinAsignar > 0 && (
+                  <DropdownMenuItem
+                    onClick={() => setFiltroVendedor(FILTRO_VENDEDOR_SIN_ASIGNAR)}
+                    className={cn(filtroVendedor === FILTRO_VENDEDOR_SIN_ASIGNAR && 'text-primary font-medium')}
+                  >
+                    Sin asignar
+                    <span className="ml-auto text-xs text-muted-foreground money">
+                      {conteosPorVendedor.sinAsignar}
+                    </span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {/* Tabs estilo WhatsApp: Todos / Con deuda / Ventas / Presupuestos / Saldados */}
           <div
@@ -423,8 +577,10 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
             <EmptyState onNuevo={abrirNuevoCliente} />
           ) : filtrados.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-12">
-              {tab !== 'todos'
-                ? `Ningún cliente en "${TABS.find((t) => t.id === tab)?.label}" coincide con la búsqueda.`
+              {tab !== 'todos' || filtroVendedor !== FILTRO_VENDEDOR_TODOS
+                ? `Ningún cliente en "${TABS.find((t) => t.id === tab)?.label}"${
+                    filtroVendedor !== FILTRO_VENDEDOR_TODOS ? ` (${filtroVendedorLabel})` : ''
+                  } coincide con la búsqueda.`
                 : 'No se encontraron clientes con esa búsqueda.'}
             </p>
           ) : (
@@ -434,6 +590,7 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
                   key={resumen.cliente.id}
                   resumen={resumen}
                   prefijoWhatsApp={prefijoWhatsApp}
+                  esAdmin={esAdmin}
                   onVerCliente={onVerCliente}
                   onRegistrarPago={(obra, pagosObra) =>
                     setPagoRapido({ obra, pagos: pagosObra })
@@ -497,11 +654,13 @@ const SWIPE_OPEN_THRESHOLD = 56 // px arrastrados para quedar "abierto"
 function ClienteCard({
   resumen,
   prefijoWhatsApp,
+  esAdmin,
   onVerCliente,
   onRegistrarPago,
 }: {
   resumen: ResumenCliente
   prefijoWhatsApp: string
+  esAdmin: boolean
   onVerCliente: (clienteId: string) => void
   onRegistrarPago: (obra: Obra, pagosObra: Pago[]) => void
 }) {
@@ -631,16 +790,29 @@ function ClienteCard({
               )}
             </div>
             <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-              <span className="inline-flex items-center gap-1 min-w-0">
-                <MessageCircle className="size-3 shrink-0" aria-hidden="true" />
-                <span className="truncate">
-                  {formatWhatsApp(cliente.telefonoWhatsApp, prefijoWhatsApp) || '—'}
+              {tieneWhatsApp ? (
+                <span className="inline-flex items-center gap-1 min-w-0">
+                  <MessageCircle className="size-3 shrink-0" aria-hidden="true" />
+                  <span className="truncate">
+                    {formatWhatsApp(cliente.telefonoWhatsApp, prefijoWhatsApp) || '—'}
+                  </span>
                 </span>
-              </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 min-w-0 text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+                  <span className="truncate">Sin número</span>
+                </span>
+              )}
               <span className="inline-flex items-center gap-1">
                 <PackageOpen className="size-3" aria-hidden="true" />
                 {cantidadObras} {cantidadObras === 1 ? 'obra' : 'obras'}
               </span>
+              {esAdmin && cliente.compartidoCon.length > 0 && (
+                <span className="inline-flex items-center gap-1 text-primary">
+                  <Share2 className="size-3 shrink-0" aria-hidden="true" />
+                  Compartido
+                </span>
+              )}
             </div>
             {saldoTotal > 0 && (
               <p className="mt-1.5 money text-base font-semibold text-destructive">

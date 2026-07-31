@@ -124,6 +124,7 @@ export function useUpdateCliente() {
         .update({
           nombre: cliente.nombre,
           telefono_whatsapp: cliente.telefonoWhatsApp,
+          vendedor_id: cliente.vendedorId,
           compartido_con: cliente.compartidoCon,
         })
         .eq('id', cliente.id)

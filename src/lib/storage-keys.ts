@@ -17,9 +17,6 @@ export const STORAGE_KEY_PAGOS = 'lebaux-pagos'
 export const STORAGE_KEY_AJUSTES = 'lebaux-ajustes'
 /** Drafts en curso (form de obra no finalizado). */
 export const STORAGE_KEY_BORRADORES = 'lebaux-borradores'
-/** Plantillas de presupuesto/venta guardadas por el vendedor (set de
- * aberturas reutilizable, para obras grandes y repetitivas). */
-export const STORAGE_KEY_PLANTILLAS = 'lebaux-plantillas-obra'
 /** Historial local de descripciones de abertura ya tipeadas, para
  * autocompletar. Solo vive en este dispositivo (no es dato de negocio). */
 export const STORAGE_KEY_DESCRIPCIONES_FRECUENTES = 'lebaux-descripciones-frecuentes'
