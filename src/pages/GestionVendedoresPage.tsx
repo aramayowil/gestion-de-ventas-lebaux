@@ -10,7 +10,7 @@
  */
 import * as React from 'react'
 import { toast } from 'sonner'
-import { UserPlus, Trash2, User as UserIcon, KeyRound } from 'lucide-react'
+import { UserPlus, Trash2, User as UserIcon, KeyRound, Wifi } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { useUsers, useCrearVendedor, useEliminarVendedor, useClientes } from '@/hooks/queries'
+import { useUsers, useCrearVendedor, useEliminarVendedor, useClientes, useTestEdgeFunction } from '@/hooks/queries'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { formatFechaCorta } from '@/lib/obra-totales'
@@ -49,6 +49,7 @@ export function GestionVendedoresPage({ onVolver }: Props) {
   const { data: users = [], isLoading: loadingUsers } = useUsers()
   const crearVendedorMutation = useCrearVendedor()
   const eliminarVendedorMutation = useEliminarVendedor()
+  const testEdgeFunctionMutation = useTestEdgeFunction()
   const currentUser = useAuthStore((s) => s.currentUser)
   const { data: clientes = [] } = useClientes()
 
@@ -68,6 +69,19 @@ export function GestionVendedoresPage({ onVolver }: Props) {
     return m
   }, [clientes])
 
+  async function handleTestEdgeFunction() {
+    try {
+      const res = await testEdgeFunctionMutation.mutateAsync()
+      toast.success(`Conexión OK (status ${res.status}): ${res.message}`, {
+        duration: 8000,
+      })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al testear la conexión.', {
+        duration: 10000,
+      })
+    }
+  }
+
   async function handleEliminar(u: User) {
     try {
       await eliminarVendedorMutation.mutateAsync(u.id)
@@ -86,11 +100,25 @@ export function GestionVendedoresPage({ onVolver }: Props) {
       onBack={onVolver}
       maxWidth="max-w-3xl"
       headerActions={
-        <Button size="sm" className="h-9" onClick={() => setModalCrear(true)}>
-          <UserPlus className="size-4" />
-          <span className="hidden sm:inline">Nuevo vendedor</span>
-          <span className="sm:hidden">Nuevo</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9"
+            onClick={handleTestEdgeFunction}
+            disabled={testEdgeFunctionMutation.isPending}
+          >
+            <Wifi className="size-4" />
+            <span className="hidden sm:inline">
+              {testEdgeFunctionMutation.isPending ? 'Probando...' : 'Testear conexión'}
+            </span>
+          </Button>
+          <Button size="sm" className="h-9" onClick={() => setModalCrear(true)}>
+            <UserPlus className="size-4" />
+            <span className="hidden sm:inline">Nuevo vendedor</span>
+            <span className="sm:hidden">Nuevo</span>
+          </Button>
+        </div>
       }
       withBottomBar
     >

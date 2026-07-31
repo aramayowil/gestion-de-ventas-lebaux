@@ -418,40 +418,44 @@ export function ClienteDetalle({
         </section>
 
         {/* ─── Eliminar cliente ─── */}
-        {obras.length > 0 && (
-          <div className="pt-2">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10">
-                  <Trash2 className="size-4" />
-                  Eliminar cliente y todas sus obras
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    ¿Eliminar a {cliente.nombre}?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Se borrarán también las{' '}
-                    <strong>{obras.length} obras</strong> y todos sus pagos
-                    registrados. Esta acción no se puede deshacer.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleEliminarCliente}
-                    disabled={eliminarClienteMutation.isPending}
-                    className="bg-destructive text-white hover:bg-destructive/90"
-                  >
-                    {eliminarClienteMutation.isPending ? 'Eliminando...' : 'Sí, eliminar todo'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        )}
+        <div className="pt-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10">
+                <Trash2 className="size-4" />
+                {obras.length > 0 ? 'Eliminar cliente y todas sus obras' : 'Eliminar cliente'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  ¿Eliminar a {cliente.nombre}?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {obras.length > 0 ? (
+                    <>
+                      Se borrarán también las{' '}
+                      <strong>{obras.length} obras</strong> y todos sus pagos
+                      registrados. Esta acción no se puede deshacer.
+                    </>
+                  ) : (
+                    'Esta acción no se puede deshacer.'
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleEliminarCliente}
+                  disabled={eliminarClienteMutation.isPending}
+                  className="bg-destructive text-white hover:bg-destructive/90"
+                >
+                  {eliminarClienteMutation.isPending ? 'Eliminando...' : 'Sí, eliminar todo'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
 
       <ClienteFormModal
         open={modalEdit}

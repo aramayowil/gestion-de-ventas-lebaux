@@ -817,6 +817,68 @@ export function useCrearVendedor() {
   })
 }
 
+/**
+ * Diagnóstico: prueba la conexión con la Edge Function `crear-vendedor`
+ * sin crear ningún usuario real. Sirve para detectar si el problema es:
+ *   · La función no está desplegada (404 / "Failed to send a request")
+ *   · Problema de permisos/sesión (401 / 403)
+ *   · La función está desplegada pero tira otro error interno (500)
+ */
+export function useTestEdgeFunction() {
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke(
+        'crear-vendedor',
+        // Body intencionalmente inválido: si la función responde con
+        // un error de VALIDACIÓN (ej. "Email inválido"), es una buena
+        // señal: la función existe y corrió. Si en cambio no hay
+        // respuesta o da 404, la función no está desplegada.
+        { body: { _diagnostico: true } },
+      )
+
+      const status = (
+        error as { context?: { status?: number } } | undefined
+      )?.context?.status
+
+      const ctx = (
+        error as { context?: { json?: () => Promise<{ error?: string }> } }
+      )?.context
+      const body = await ctx?.json?.().catch(() => null)
+      const serverMessage: string | undefined = body?.error
+
+      if (error && !status) {
+        // No hubo respuesta HTTP en absoluto: la función no existe,
+        // no está desplegada, o hay un problema de red/CORS.
+        throw new Error(
+          'No se pudo contactar la función "crear-vendedor". Probablemente no está desplegada en este proyecto de Supabase. Desplegala con: supabase functions deploy crear-vendedor',
+        )
+      }
+
+      if (status === 401 || status === 403) {
+        throw new Error(
+          `La función respondió (status ${status}) pero rechazó el pedido: "${serverMessage ?? error?.message}". Revisá que tu usuario tenga rol 'admin' en la tabla public.users.`,
+        )
+      }
+
+      if (status && status >= 400) {
+        // Cualquier otro 4xx con mensaje de validación = la función
+        // SÍ está desplegada y funcionando correctamente.
+        return {
+          ok: true,
+          status,
+          message: serverMessage ?? error?.message ?? 'Función activa.',
+        }
+      }
+
+      if (data?.error) {
+        return { ok: true, status: 200, message: data.error }
+      }
+
+      return { ok: true, status: status ?? 200, message: 'Función activa y respondiendo.' }
+    },
+  })
+}
+
 /** Elimina el acceso de un vendedor (no borra sus clientes/obras). */
 export function useEliminarVendedor() {
   const qc = useQueryClient()

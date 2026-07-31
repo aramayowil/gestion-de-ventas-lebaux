@@ -4,10 +4,11 @@
  * Secciones:
  *   1. Tema (claro/oscuro/sistema) — usa next-themes — cualquier usuario
  *   2. Mi cuenta (cambiar username) — cualquier usuario
- *   3. Datos de empresa (usados en PDFs) — SOLO ADMIN
- *   4. Reglas del sistema (días auto-rechazo, prefijo WhatsApp, moneda) — SOLO ADMIN
- *   5. Respaldo (exportar/importar JSON) — SOLO ADMIN
- *   6. Zona peligrosa (borrar todo) — SOLO ADMIN
+ *   3. Vendedores (link a /admin/vendedores) — SOLO ADMIN
+ *   4. Datos de empresa (usados en PDFs) — SOLO ADMIN
+ *   5. Reglas del sistema (días auto-rechazo, prefijo WhatsApp, moneda) — SOLO ADMIN
+ *   6. Respaldo (exportar/importar JSON) — SOLO ADMIN
+ *   7. Zona peligrosa (borrar todo) — SOLO ADMIN
  *
  * El gating es doble: acá ocultamos las secciones en la UI, y además
  * las políticas RLS de la tabla `ajustes` (ver src/sql/schema.sql)
@@ -15,6 +16,7 @@
  * alguien manipule el front, la base de datos igual protege los datos.
  */
 import * as React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 import {
@@ -29,6 +31,7 @@ import {
   Upload,
   RotateCcw,
   UserCircle,
+  Users,
 } from 'lucide-react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Button } from '@/components/ui/button'
@@ -59,6 +62,7 @@ interface Props {
 
 export function AjustesPage({ onVolver }: Props) {
   const { theme, setTheme } = useTheme()
+  const navigate = useNavigate()
 
   // Solo el admin puede ver/editar datos de empresa, reglas del sistema,
   // respaldo y borrado masivo. Un vendedor solo ve "Tema" y "Mi cuenta".
@@ -256,6 +260,22 @@ export function AjustesPage({ onVolver }: Props) {
               </div>
             </div>
           </SectionCard>
+        )}
+
+        {/* ─── Vendedores (solo admin) ─── */}
+        {esAdmin && (
+        <SectionCard icon={Users} title="Vendedores">
+          <p className="text-xs text-muted-foreground mb-3">
+            Administrá el equipo de ventas: creá cuentas nuevas o editá las existentes.
+          </p>
+          <Button
+            className="h-11"
+            onClick={() => navigate('/admin/vendedores')}
+          >
+            <Users className="size-4" />
+            Gestionar vendedores
+          </Button>
+        </SectionCard>
         )}
 
         {/* ─── Datos de empresa (solo admin) ─── */}
