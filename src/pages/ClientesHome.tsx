@@ -26,6 +26,7 @@ import {
   Share2,
   UserCog,
   Store,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,7 +51,6 @@ import {
 } from '@/lib/obra-totales'
 import type { Cliente, EstadoPago, Obra, Pago, User } from '@/lib/types'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { RegistrarPagoModal } from '@/components/lebaux/obras/RegistrarPagoModal'
@@ -443,164 +443,214 @@ export function ClientesHome({ onVerCliente }: Props) {
     obra: Obra
     pagos: Pago[]
   } | null>(null)
+  const [mostrarEncabezado, setMostrarEncabezado] = React.useState(true)
 
   return (
     <AppLayout
       onNuevoCliente={abrirNuevoCliente}
-      mainClassName="flex-1 min-h-0 overflow-y-auto max-w-5xl w-full mx-auto px-4 py-5 space-y-4 pb-20"
+      mainClassName="mx-auto grid min-h-0 w-full max-w-5xl flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden px-4 py-2"
       withBottomBar
+      reserveBottomSpace={false}
     >
-      {/* Buscador + tabs: sticky arriba del main scrolleable, estilo WhatsApp */}
-      <div className="sticky -top-5 z-10 -mx-4 px-4 pt-5 -mb-1 bg-background space-y-3">
-        <div className="rounded-2xl border border-border/70 bg-card/80 p-3 shadow-sm">
-          <div className="relative">
-            <Search
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none"
-              aria-hidden="true"
-            />
-            <Input
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por nombre o WhatsApp…"
-              aria-label="Buscar clientes por nombre o WhatsApp"
-              className="h-11 pl-10 text-base sm:text-sm"
-              autoComplete="off"
-            />
+      <div className="min-w-0 shrink-0 pb-3">
+        <div
+          className={cn(
+            'grid transition-[grid-template-rows,opacity,transform] duration-200 ease-out',
+            mostrarEncabezado
+              ? 'grid-rows-[1fr] translate-y-0 opacity-100'
+              : 'grid-rows-[0fr] -translate-y-1 opacity-0',
+          )}
+          aria-hidden={!mostrarEncabezado}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+              Cartera comercial
+            </p>
+            <h2 className="mt-1 font-display text-2xl font-bold tracking-tight">
+              Clientes
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Consultá clientes, presupuestos, ventas y saldos.
+            </p>
           </div>
         </div>
 
-        {esAdmin && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+        {/* Los controles quedan fuera del área desplazable. Solo la lista
+          inferior hace scroll, así ninguna card puede atravesarlos. */}
+        <div
+          className={cn(
+            'space-y-2 transition-[margin] duration-200 ease-out',
+            mostrarEncabezado ? 'mt-3' : 'mt-0',
+          )}
+        >
+          <div className="flex min-h-11 items-center gap-1.5 rounded-xl border border-border/70 bg-card/85 px-1.5 shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Search className="size-4" aria-hidden="true" />
+            </span>
+            <Input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Nombre o número de WhatsApp"
+              aria-label="Buscar clientes por nombre o WhatsApp"
+              className="h-10 flex-1 border-0 bg-transparent px-1 text-base shadow-none hover:border-0 focus-visible:border-0 focus-visible:bg-transparent focus-visible:ring-0 sm:text-sm"
+              autoComplete="off"
+            />
+            <span
+              className="shrink-0 rounded-full bg-muted/70 px-2 py-1 text-[11px] font-semibold text-muted-foreground"
+              aria-live="polite"
+              aria-label={`${filtrados.length} resultados`}
+            >
+              {filtrados.length}
+            </span>
+            {busqueda && (
               <Button
-                variant="outline"
-                className="h-9 w-full justify-start gap-2 px-3 text-xs sm:text-sm"
-                aria-label="Filtrar clientes por vendedor"
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-11 shrink-0 text-muted-foreground"
+                onClick={() => setBusqueda('')}
+                aria-label="Limpiar búsqueda"
               >
-                <UserCog
-                  className="size-4 text-muted-foreground shrink-0"
-                  aria-hidden="true"
-                />
-                <span className="flex-1 min-w-0 text-left truncate">
-                  {filtroVendedorLabel}
-                </span>
+                <X className="size-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
-              <DropdownMenuItem
-                onClick={() => setFiltroVendedor(FILTRO_VENDEDOR_TODOS)}
-                className={cn(
-                  filtroVendedor === FILTRO_VENDEDOR_TODOS &&
-                    'text-primary font-medium',
-                )}
-              >
-                Todos
-                <span className="ml-auto text-xs text-muted-foreground money">
-                  {conteosPorVendedor.total}
-                </span>
-              </DropdownMenuItem>
-              {currentUser && (
+            )}
+          </div>
+
+          {esAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-11 w-full justify-start gap-2 px-3 text-xs sm:text-sm"
+                  aria-label="Filtrar clientes por vendedor"
+                >
+                  <UserCog
+                    className="size-4 text-muted-foreground shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span className="flex-1 min-w-0 text-left truncate">
+                    {filtroVendedorLabel}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
                 <DropdownMenuItem
-                  onClick={() => setFiltroVendedor(currentUser.id)}
+                  onClick={() => setFiltroVendedor(FILTRO_VENDEDOR_TODOS)}
                   className={cn(
-                    filtroVendedor === currentUser.id &&
+                    filtroVendedor === FILTRO_VENDEDOR_TODOS &&
                       'text-primary font-medium',
                   )}
                 >
-                  Mis clientes
+                  Todos
                   <span className="ml-auto text-xs text-muted-foreground money">
-                    {conteosPorVendedor.porId.get(currentUser.id) ?? 0}
+                    {conteosPorVendedor.total}
                   </span>
                 </DropdownMenuItem>
-              )}
-              {vendedores
-                .filter((v) => v.id !== currentUser?.id)
-                .map((v) => (
+                {currentUser && (
                   <DropdownMenuItem
-                    key={v.id}
-                    onClick={() => setFiltroVendedor(v.id)}
+                    onClick={() => setFiltroVendedor(currentUser.id)}
                     className={cn(
-                      filtroVendedor === v.id && 'text-primary font-medium',
+                      filtroVendedor === currentUser.id &&
+                        'text-primary font-medium',
                     )}
                   >
-                    <span className="truncate">{v.nombre}</span>
-                    <span className="ml-auto shrink-0 text-xs text-muted-foreground money">
-                      {conteosPorVendedor.porId.get(v.id) ?? 0}
+                    Mis clientes
+                    <span className="ml-auto text-xs text-muted-foreground money">
+                      {conteosPorVendedor.porId.get(currentUser.id) ?? 0}
                     </span>
                   </DropdownMenuItem>
-                ))}
-              {conteosPorVendedor.sinAsignar > 0 && (
-                <DropdownMenuItem
-                  onClick={() => setFiltroVendedor(FILTRO_VENDEDOR_SIN_ASIGNAR)}
-                  className={cn(
-                    filtroVendedor === FILTRO_VENDEDOR_SIN_ASIGNAR &&
-                      'text-primary font-medium',
-                  )}
-                >
-                  Sin asignar
-                  <span className="ml-auto text-xs text-muted-foreground money">
-                    {conteosPorVendedor.sinAsignar}
-                  </span>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-
-        <div
-          className="flex gap-2 overflow-x-auto pb-3 scrollbar-none"
-          role="tablist"
-          aria-label="Filtrar clientes"
-        >
-          {TABS.map(({ id, label, icon: Icon }) => {
-            const activo = tab === id
-            const count = conteos[id]
-            return (
-              <Button
-                key={id}
-                variant={activo ? 'default' : 'outline'}
-                size="sm"
-                role="tab"
-                aria-selected={activo}
-                onClick={() => setTab(id)}
-                className={cn(
-                  'shrink-0 rounded-full px-3.5 py-2 text-xs font-medium whitespace-nowrap',
-                  activo
-                    ? id === 'deuda'
-                      ? 'bg-destructive/15 text-destructive border-destructive/40 hover:bg-destructive/20 hover:text-destructive'
-                      : ''
-                    : 'bg-card/60 text-muted-foreground hover:bg-elevated hover:text-foreground',
                 )}
-              >
-                <Icon className="size-3.5" aria-hidden="true" />
-                {label}
-                {count > 0 && (
-                  <span
+                {vendedores
+                  .filter((v) => v.id !== currentUser?.id)
+                  .map((v) => (
+                    <DropdownMenuItem
+                      key={v.id}
+                      onClick={() => setFiltroVendedor(v.id)}
+                      className={cn(
+                        filtroVendedor === v.id && 'text-primary font-medium',
+                      )}
+                    >
+                      <span className="truncate">{v.nombre}</span>
+                      <span className="ml-auto shrink-0 text-xs text-muted-foreground money">
+                        {conteosPorVendedor.porId.get(v.id) ?? 0}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                {conteosPorVendedor.sinAsignar > 0 && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setFiltroVendedor(FILTRO_VENDEDOR_SIN_ASIGNAR)
+                    }
                     className={cn(
-                      'inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] font-semibold money',
-                      activo ? 'bg-black/15' : 'bg-muted text-muted-foreground',
+                      filtroVendedor === FILTRO_VENDEDOR_SIN_ASIGNAR &&
+                        'text-primary font-medium',
                     )}
                   >
-                    {count}
-                  </span>
+                    Sin asignar
+                    <span className="ml-auto text-xs text-muted-foreground money">
+                      {conteosPorVendedor.sinAsignar}
+                    </span>
+                  </DropdownMenuItem>
                 )}
-              </Button>
-            )
-          })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          <div
+            className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none"
+            role="tablist"
+            aria-label="Filtrar clientes"
+          >
+            {TABS.map(({ id, label, icon: Icon }) => {
+              const activo = tab === id
+              const count = conteos[id]
+              return (
+                <Button
+                  key={id}
+                  variant={activo ? 'default' : 'outline'}
+                  size="sm"
+                  role="tab"
+                  aria-selected={activo}
+                  onClick={() => setTab(id)}
+                  className={cn(
+                    'h-11 shrink-0 rounded-full px-3.5 py-2 text-xs font-medium whitespace-nowrap',
+                    activo
+                      ? id === 'deuda'
+                        ? 'bg-destructive/15 text-destructive border-destructive/40 hover:bg-destructive/20 hover:text-destructive'
+                        : ''
+                      : 'bg-card/60 text-muted-foreground hover:bg-elevated hover:text-foreground',
+                  )}
+                >
+                  <Icon className="size-3.5" aria-hidden="true" />
+                  {label}
+                  {count > 0 && (
+                    <span
+                      className={cn(
+                        'inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] font-semibold money',
+                        activo
+                          ? 'bg-black/15'
+                          : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </Button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
       {/* Lista */}
-      <section className="mt-2 rounded-2xl border border-border/70 bg-card/70 p-3 shadow-sm sm:p-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="min-w-0">
+      <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/70 shadow-sm">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-1 sm:px-4">
+          <div className="flex min-w-0 items-baseline gap-2">
             <h2 className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground/80">
               Clientes
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {filtrados.length}{' '}
-              {filtrados.length === 1 ? 'visible' : 'visibles'} ·{' '}
-              {clientes.length} total
+            <p className="truncate text-xs text-muted-foreground">
+              {filtrados.length} de {clientes.length}
             </p>
           </div>
           <div className="flex min-w-0 items-center gap-2">
@@ -608,9 +658,9 @@ export function ClientesHome({ onVerCliente }: Props) {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   aria-label="Ordenar clientes"
-                  className="h-8 gap-1.5 px-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                  className="h-11 gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground sm:w-auto sm:px-3"
                 >
                   <ArrowUpDown className="size-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">
@@ -635,37 +685,47 @@ export function ClientesHome({ onVerCliente }: Props) {
           </div>
         </div>
 
-        {loadingClientes ? (
-          <div className="grid gap-2">
-            <ClienteCardSkeleton />
-            <ClienteCardSkeleton />
-            <ClienteCardSkeleton />
-          </div>
-        ) : clientes.length === 0 ? (
-          <EmptyState onNuevo={abrirNuevoCliente} />
-        ) : filtrados.length === 0 ? (
-          <p className="py-12 text-center text-sm leading-6 text-muted-foreground">
-            {tab !== 'todos' || filtroVendedor !== FILTRO_VENDEDOR_TODOS
-              ? `Ningún cliente en "${TABS.find((t) => t.id === tab)?.label}"${
-                  filtroVendedor !== FILTRO_VENDEDOR_TODOS
-                    ? ` (${filtroVendedorLabel})`
-                    : ''
-                } coincide con la búsqueda.`
-              : 'No se encontraron clientes con esa búsqueda.'}
-          </p>
-        ) : (
-          <div className="grid gap-2">
-            {filtrados.map((resumen) => (
-              <ClienteCard
-                key={resumen.cliente.id}
-                resumen={resumen}
-                prefijoWhatsApp={prefijoWhatsApp}
-                esAdmin={esAdmin}
-                onVerCliente={onVerCliente}
-              />
-            ))}
-          </div>
-        )}
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4"
+          onScroll={(event) => {
+            const debeMostrar = event.currentTarget.scrollTop <= 8
+            setMostrarEncabezado((actual) =>
+              actual === debeMostrar ? actual : debeMostrar,
+            )
+          }}
+        >
+          {loadingClientes ? (
+            <div className="grid gap-2">
+              <ClienteCardSkeleton />
+              <ClienteCardSkeleton />
+              <ClienteCardSkeleton />
+            </div>
+          ) : clientes.length === 0 ? (
+            <EmptyState onNuevo={abrirNuevoCliente} />
+          ) : filtrados.length === 0 ? (
+            <p className="py-12 text-center text-sm leading-6 text-muted-foreground">
+              {tab !== 'todos' || filtroVendedor !== FILTRO_VENDEDOR_TODOS
+                ? `Ningún cliente en "${TABS.find((t) => t.id === tab)?.label}"${
+                    filtroVendedor !== FILTRO_VENDEDOR_TODOS
+                      ? ` (${filtroVendedorLabel})`
+                      : ''
+                  } coincide con la búsqueda.`
+                : 'No se encontraron clientes con esa búsqueda.'}
+            </p>
+          ) : (
+            <div className="grid gap-2">
+              {filtrados.map((resumen) => (
+                <ClienteCard
+                  key={resumen.cliente.id}
+                  resumen={resumen}
+                  prefijoWhatsApp={prefijoWhatsApp}
+                  esAdmin={esAdmin}
+                  onVerCliente={onVerCliente}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </section>
       {modalNuevoCliente}
       {pagoRapido && (
@@ -741,11 +801,11 @@ function ClienteCard({
         : 'bg-amber-500'
 
   return (
-    <div className="rounded-md border border-border/70 bg-card/70 p-px shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
+    <div className="rounded-xl border border-border/70 bg-card/70 p-px shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
       <Button
         variant="ghost"
         onClick={() => onVerCliente(cliente.id)}
-        className="group relative flex h-auto w-full items-start justify-start overflow-hidden rounded-[calc(0.75rem-1px)] bg-background/90 p-0 text-left transition-all hover:bg-card/90"
+        className="group flex h-auto w-full min-w-0 items-start justify-start overflow-hidden whitespace-normal rounded-[calc(0.75rem-1px)] bg-background/90 p-0 text-left transition-all hover:bg-card/90"
       >
         <div
           className={cn(
@@ -753,14 +813,21 @@ function ClienteCard({
             tonoAccento,
           )}
         />
-        <div className="flex w-full items-center gap-3 p-3 sm:p-4">
-          <div className="relative shrink-0">
-            <Avatar className="size-12 border border-border/60 bg-muted/70 text-sm font-semibold text-foreground">
-              <AvatarFallback>{iniciales}</AvatarFallback>
-            </Avatar>
-            {estadoPeor === 'debe' && (
-              <span className="absolute bottom-0 right-0 block size-3 rounded-full border-2 border-background bg-destructive" />
+        <div className="flex min-w-0 flex-1 items-center gap-3 p-3 sm:p-4">
+          <div
+            className={cn(
+              'flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted/70 text-sm font-semibold text-foreground',
+              estadoPeor === 'debe' &&
+                'border-destructive/70 ring-2 ring-destructive/20',
             )}
+          >
+            <span
+              className={cn(
+                'flex size-full items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground',
+              )}
+            >
+              {iniciales}
+            </span>
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">

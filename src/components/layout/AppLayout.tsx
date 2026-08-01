@@ -57,6 +57,9 @@ interface AppLayoutProps {
   /** Muestra la BottomTabBar fija abajo y reserva su espacio dentro del
    * <main> scrolleable. Solo la piden las 6 pantallas principales. */
   withBottomBar?: boolean
+  /** Algunas pantallas, como Clientes, tienen un scroll interno propio y
+   * no necesitan padding extra dentro de <main> para la bottom bar. */
+  reserveBottomSpace?: boolean
   /** Contenido de la página. */
   children: React.ReactNode
 }
@@ -71,6 +74,7 @@ export function AppLayout({
   maxWidth = 'max-w-5xl',
   mainClassName,
   withBottomBar = false,
+  reserveBottomSpace = true,
   children,
 }: AppLayoutProps) {
   return (
@@ -89,7 +93,7 @@ export function AppLayout({
         className={cn(
           mainClassName ??
             `flex-1 min-h-0 overflow-y-auto ${maxWidth} w-full mx-auto px-4 py-5 space-y-5`,
-          withBottomBar && BOTTOM_TAB_BAR_SPACE,
+          withBottomBar && reserveBottomSpace && BOTTOM_TAB_BAR_SPACE,
         )}
       >
         {children}
