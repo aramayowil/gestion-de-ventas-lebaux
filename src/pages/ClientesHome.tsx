@@ -49,7 +49,6 @@ import {
   esVenta,
 } from '@/lib/obra-totales'
 import type { Cliente, EstadoPago, Obra, Pago, User } from '@/lib/types'
-import { EstadoBadge } from '@/components/lebaux/clientes/EstadoBadge'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
@@ -451,6 +450,7 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
       title="Clientes"
       subtitle={`${clientes.length} ${clientes.length === 1 ? 'cliente' : 'clientes'}`}
       onBack={onVolver}
+      onNuevoCliente={abrirNuevoCliente}
       mainClassName="flex-1 min-h-0 overflow-y-auto max-w-5xl w-full mx-auto px-4 py-5 space-y-4 pb-20"
       withBottomBar
     >
@@ -723,7 +723,6 @@ function ClienteCard({
   const {
     cliente,
     cantidadObras,
-    saldoTotal,
     estadoPeor,
     tienePresupuestoPendiente,
     diasVencimientoMin,
@@ -759,9 +758,14 @@ function ClienteCard({
           )}
         />
         <div className="flex w-full items-center gap-3 p-3 sm:p-4">
-          <Avatar className="size-12 shrink-0 border border-border/60 bg-muted/70 text-sm font-semibold text-foreground">
-            <AvatarFallback>{iniciales}</AvatarFallback>
-          </Avatar>
+          <div className="relative shrink-0">
+            <Avatar className="size-12 border border-border/60 bg-muted/70 text-sm font-semibold text-foreground">
+              <AvatarFallback>{iniciales}</AvatarFallback>
+            </Avatar>
+            {estadoPeor === 'debe' && (
+              <span className="absolute bottom-0 right-0 block size-3 rounded-full border-2 border-background bg-destructive" />
+            )}
+          </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
@@ -769,11 +773,6 @@ function ClienteCard({
                   <span className="truncate text-sm font-semibold leading-5 text-foreground sm:text-[15px]">
                     {cliente.nombre}
                   </span>
-                  <EstadoBadge
-                    estado={estadoPeor}
-                    saldoPendiente={saldoTotal}
-                    size="sm"
-                  />
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2.5 text-[13px] leading-5 text-muted-foreground">
                   {tieneWhatsApp ? (

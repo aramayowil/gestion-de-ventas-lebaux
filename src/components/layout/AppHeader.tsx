@@ -20,8 +20,14 @@
  * components/layout/AppLayout.tsx.
  */
 import * as React from 'react'
-import { ArrowLeft, LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, LogOut, Settings, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth-store'
 
@@ -46,13 +52,20 @@ export function AppHeader({
 }: AppHeaderProps) {
   const currentUser = useAuthStore((s) => s.currentUser)
   const logout = useAuthStore((s) => s.logout)
+  const navigate = useNavigate()
+
   return (
     <header
       className={cn(
-        'z-20 border-b border-border/40 bg-card/80 backdrop-blur-xl supports-[backdrop-filter]:bg-card/70 pt-safe dark:bg-card/60 dark:supports-[backdrop-filter]:bg-card/50',
+        'z-20 border-b border-border/40 bg-card/80 backdrop-blur-xl pt-safe dark:bg-card/60',
       )}
     >
-      <div className={cn(maxWidth, 'mx-auto flex items-center gap-2.5 px-3 py-2.5 sm:px-4')}>
+      <div
+        className={cn(
+          maxWidth,
+          'mx-auto flex items-center gap-2.5 px-3 py-2.5 sm:px-4',
+        )}
+      >
         {onBack ? (
           <Button
             variant="ghost"
@@ -115,26 +128,48 @@ export function AppHeader({
           {actions}
           {/* Usuario + logout */}
           {currentUser && (
-            <div className="flex items-center gap-1.5 pl-1.5 ml-1 border-l border-border/40">
-              <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-24">
-                {currentUser.nombre}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={logout}
-                aria-label="Cerrar sesión"
-                className="size-9 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              >
-                <LogOut className="size-4" />
-              </Button>
+            <div className="ml-1 flex items-center gap-1.5 border-l border-border/40 pl-1.5">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 rounded-full px-2.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <span className="truncate max-w-24 sm:max-w-28">
+                      {currentUser.nombre}
+                    </span>
+                    <ChevronDown className="ml-1.5 size-4 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-48 p-2">
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      className="h-9 justify-start px-2 text-sm"
+                      onClick={() => navigate('/ajustes')}
+                    >
+                      <Settings className="mr-2 size-4 shrink-0" />
+                      Ajustes
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="h-9 justify-start px-2 text-sm text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={logout}
+                    >
+                      <LogOut className="mr-2 size-4 shrink-0" />
+                      Cerrar sesión
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           )}
         </div>
       </div>
 
       {/* Filete dorado: la firma visual de Lebaux */}
-      <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+      <div className="h-px bg-linear-to-r from-transparent via-primary/60 to-transparent" />
     </header>
   )
 }

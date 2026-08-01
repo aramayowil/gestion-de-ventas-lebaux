@@ -41,14 +41,7 @@
  * `withBottomBar` a su `AppLayout`.
  */
 import { NavLink } from 'react-router-dom'
-import {
-  Home,
-  LayoutDashboard,
-  Users,
-  ScrollText,
-  Factory,
-  Settings,
-} from 'lucide-react'
+import { Home, LayoutDashboard, Users, ScrollText, Factory } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TABS = [
@@ -57,7 +50,6 @@ const TABS = [
   { to: '/clientes', label: 'Clientes', icon: Users, end: false },
   { to: '/agenda', label: 'Agenda', icon: Factory, end: false },
   { to: '/registros', label: 'Registros', icon: ScrollText, end: false },
-  { to: '/ajustes', label: 'Ajustes', icon: Settings, end: false },
 ] as const
 
 export function BottomTabBar() {
@@ -66,8 +58,8 @@ export function BottomTabBar() {
       aria-label="Navegación principal"
       className={cn(
         'border-t border-border/50 bg-card/95 pb-safe',
-        'backdrop-blur-xl supports-[backdrop-filter]:bg-card/85',
-        'dark:bg-card/90 dark:supports-[backdrop-filter]:bg-card/80',
+        'backdrop-blur-xl',
+        'dark:bg-card/90',
         'shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.12)] dark:shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.4)]',
       )}
     >

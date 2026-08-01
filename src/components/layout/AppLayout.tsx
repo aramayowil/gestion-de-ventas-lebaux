@@ -33,7 +33,10 @@
 import * as React from 'react'
 import { Plus } from 'lucide-react'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { BottomTabBar, BOTTOM_TAB_BAR_SPACE } from '@/components/layout/BottomTabBar'
+import {
+  BottomTabBar,
+  BOTTOM_TAB_BAR_SPACE,
+} from '@/components/layout/BottomTabBar'
 import { cn } from '@/lib/utils'
 
 interface AppLayoutProps {
@@ -97,7 +100,9 @@ export function AppLayout({
           className={cn(
             'pointer-events-none fixed inset-x-0 z-30 mx-auto flex justify-end px-4',
             maxWidth,
-            withBottomBar ? 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))]' : 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))]',
+            withBottomBar
+              ? 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))]'
+              : 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))]',
           )}
         >
           <button

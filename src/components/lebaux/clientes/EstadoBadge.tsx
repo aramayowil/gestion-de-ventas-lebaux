@@ -7,7 +7,6 @@
 import { CheckCircle2, AlertCircle, MinusCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { EstadoPago } from '@/lib/types'
-import { formatMoney } from '@/lib/obra-totales'
 
 interface Props {
   estado: EstadoPago
@@ -15,7 +14,7 @@ interface Props {
   size?: 'sm' | 'md'
 }
 
-export function EstadoBadge({ estado, saldoPendiente, size = 'md' }: Props) {
+export function EstadoBadge({ estado, size = 'md' }: Props) {
   if (estado === 'pagado') {
     return (
       <Badge variant="success">
@@ -34,9 +33,7 @@ export function EstadoBadge({ estado, saldoPendiente, size = 'md' }: Props) {
           className={size === 'sm' ? 'size-3' : 'size-3.5'}
           aria-hidden="true"
         />
-        {saldoPendiente !== undefined
-          ? `Debe $${formatMoney(saldoPendiente)}`
-          : 'Debe'}
+        Pendiente
       </Badge>
     )
   }
