@@ -526,10 +526,11 @@ entre tema claro y oscuro. Los tokens de color son semánticos
 siempre el token semántico, nunca un color hardcodeado** (`bg-primary`,
 no `bg-[#FDC97D]`), así el tema oscuro sigue funcionando gratis.
 
-Tipografía: **Plus Jakarta Sans** para todo el texto de UI, **Space
-Grotesk** para títulos grandes/display (`font-display`). Ambas son
-variables y locales (vía `@fontsource-variable`, sin depender de
-Google Fonts en runtime).
+Tipografía: **Inter Variable** para toda la UI, incluidos los títulos
+(`font-display`). La fuente se distribuye localmente mediante
+`@fontsource-variable/inter` para mantener el mismo aspecto en todos los
+dispositivos. Las cifras usan variantes tabulares y alineadas globalmente para
+facilitar la comparación de importes y datos contables.
 
 Radios de borde, sombras y demás también son tokens (`--radius`,
 `rounded-xl`, etc.) — antes de usar un valor arbitrario, fijate si ya

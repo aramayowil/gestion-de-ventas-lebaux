@@ -9,17 +9,15 @@
  *   · Gris medio #919596 (34% del isotipo)  → fondo/secundario
  *
  * Tipografía:
- *   · Plus Jakarta Sans (variable) para toda la UI — geométrica, muy
- *     legible en pantallas chicas y con un aire más "app 2025" que Inter.
- *   · Space Grotesk (variable) para títulos display (encabezados grandes,
- *     KPIs) — misma familia geométrica que la sans, pero con más carácter
- *     en los detalles (la "G", la "S"), sin caer en un serif clásico.
- *   · Fallback al stack del sistema si la red falla
+ *   · Inter Variable para toda la UI. Se distribuye junto con la aplicación
+ *     para conservar exactamente las mismas formas y métricas en cada sistema.
+ *   · Una sola familia también para títulos y KPIs: la jerarquía se expresa
+ *     con peso y tamaño, sin mezclar estilos que dificulten el escaneo.
+ *   · Cifras tabulares y alineadas en toda la interfaz para comparar importes.
  * ─────────────────────────────────────────────────────────────── */
 
-/* Fuentes locales (vía @fontsource, sin dependencia de Google Fonts) */
-@import "@fontsource-variable/plus-jakarta-sans";
-@import "@fontsource-variable/space-grotesk";
+/* Fuente local: no depende de la red y evita diferencias entre plataformas. */
+@import "@fontsource-variable/inter";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -61,10 +59,8 @@
   /* Tema claro — día: crema cálido muy sutil con dorado del logo Lebaux.
      Pensado para leerse bien a pleno sol en el celular de un vendedor
      de aberturas que carga datos en obra. */
-  --font-sans: "Plus Jakarta Sans Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: "Space Grotesk Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-sans);
   --radius: 0.875rem;
 
   --background: oklch(0.985 0.004 75);
@@ -156,8 +152,9 @@
     line-height: 1.5;
     -webkit-tap-highlight-color: transparent;
     font-family: var(--font-sans);
-    font-feature-settings: "cv11", "ss01";
-    letter-spacing: -0.011em;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1, "zero" 1;
+    letter-spacing: normal;
   }
 
   /* El overflow-x horizontal se contiene acá (no en html/body) porque
@@ -200,11 +197,11 @@
     outline-offset: 2px;
   }
 
-  /* Títulos display con Space Grotesk — solo cuando se aplica la clase */
+  /* Los títulos comparten la fuente de UI: el peso crea la jerarquía sin
+     introducir formas de letras o números diferentes. */
   .font-display {
     font-family: var(--font-display);
-    font-optical-sizing: auto;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.01em;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -225,8 +222,8 @@
     padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
   }
   .money {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' 1, 'lnum' 1, 'zero' 1;
   }
 
   /* La bienvenida entra en secuencia cada vez que se navega a Home. Los
