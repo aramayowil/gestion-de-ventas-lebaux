@@ -61,7 +61,7 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        'z-20 border-b border-border/40 bg-card/80 backdrop-blur-xl pt-safe dark:bg-card/60',
+        'z-20 border-b border-border/60 bg-card/80 backdrop-blur-xl pt-safe dark:bg-card/60',
       )}
     >
       <div
@@ -154,9 +154,6 @@ export function AppHeader({
           )}
         </div>
       </div>
-
-      {/* Filete dorado: la firma visual de Lebaux */}
-      <div className="h-px bg-linear-to-r from-transparent via-primary/60 to-transparent" />
     </header>
   )
 }

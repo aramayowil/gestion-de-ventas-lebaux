@@ -46,6 +46,8 @@ interface AppLayoutProps {
   onBack?: () => void
   /** Click en el FAB "Nuevo cliente". Si no se provee, no se muestra. */
   onNuevoCliente?: () => void
+  /** Destaca el FAB con una flotación y ondas suaves (solo se usa en Home). */
+  animarNuevoCliente?: boolean
   /** Acciones extras en el header (raro). */
   headerActions?: React.ReactNode
   /** Ancho máximo compartido entre header y main (por defecto max-w-5xl). */
@@ -64,6 +66,7 @@ export function AppLayout({
   subtitle,
   onBack,
   onNuevoCliente,
+  animarNuevoCliente = false,
   headerActions,
   maxWidth = 'max-w-5xl',
   mainClassName,
@@ -106,9 +109,12 @@ export function AppLayout({
             type="button"
             onClick={onNuevoCliente}
             aria-label="Nuevo cliente"
-            className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 hover:shadow-xl"
+            className={cn(
+              'pointer-events-auto flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 hover:shadow-xl',
+              animarNuevoCliente && 'fab-inicio-animado',
+            )}
           >
-            <Plus className="size-6" />
+            <Plus className="relative z-10 size-6" />
           </button>
         </div>
       )}

@@ -48,24 +48,28 @@ export function HomePage({ onVerCliente }: Props) {
     <AppLayout
       withBottomBar
       onNuevoCliente={abrirNuevoCliente}
+      animarNuevoCliente
       mainClassName="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 pb-8 pt-16 text-center sm:justify-center sm:pt-8"
     >
-      <section className="flex w-full max-w-xl flex-col items-center">
-        <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+      <section
+        key={location.key}
+        className="flex w-full max-w-xl flex-col items-center"
+      >
+        <h1 className="home-entrada font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
           {saludo}, {destinatario}.
         </h1>
 
-        <p className="mt-3 text-xs capitalize tracking-wide text-muted-foreground">
+        <p className="home-entrada home-entrada-2 mt-3 text-xs capitalize tracking-wide text-muted-foreground">
           {fechaDeHoy}
         </p>
 
-        <p className="mt-16 max-w-md text-lg leading-8 text-muted-foreground sm:text-xl">
+        <p className="home-entrada home-entrada-3 mt-16 max-w-md text-lg leading-8 text-muted-foreground sm:text-xl">
           Cada nuevo día es una oportunidad para avanzar, crecer y hacer la
           diferencia.
         </p>
 
         {!regresoDesdeLogo && (
-          <p className="mt-14 font-display text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
+          <p className="home-entrada home-entrada-4 mt-14 font-display text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
             Comencemos.
           </p>
         )}
