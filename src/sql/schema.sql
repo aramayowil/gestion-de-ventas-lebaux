@@ -70,11 +70,32 @@ create table if not exists public.ajustes (
   id              uuid primary key default uuid_generate_v4(),
   vendedor_id     uuid unique references public.users(id) on delete cascade,
   empresa         jsonb not null default '{"nombre":"LEBAUX SRL","rubro":"Aberturas","direccion":"Av. Alem 1930, San Miguel de Tucumán","telefono":"(381) 572-9129","email":"lebauxaberturas1930@gmail.com"}'::jsonb,
-  sistema         jsonb not null default '{"diasAutoRechazo":14,"prefijoWhatsApp":"54","moneda":"ARS","ivaPct":0.105}'::jsonb,
+  -- ivaBasePct: alícuota "tope" (ej. 0.21) a la que debe llegar
+  -- cualquier ítem al discriminar IVA en un presupuesto/venta.
+  -- ivaPorLinea: alícuota que YA viene incluida en el precio unitario
+  -- que el vendedor carga, según la línea de la abertura (Modena,
+  -- Herrero, A30). Se usa para descomponer cada ítem a su precio base
+  -- (neto) al activar "Discriminar IVA".
+  sistema         jsonb not null default '{"diasAutoRechazo":14,"prefijoWhatsApp":"54","moneda":"ARS","ivaPct":0.105,"ivaBasePct":0.21,"ivaPorLinea":{"Modena":0.21,"Herrero":0.105,"A30":0.105}}'::jsonb,
   actualizado_en  timestamptz not null default now()
 );
 
 comment on table public.ajustes is 'Configuración por vendedor (empresa + reglas del sistema).';
+
+-- Migración de datos: filas de `ajustes` creadas ANTES de que existiera
+-- el IVA por línea no tienen `ivaBasePct`/`ivaPorLinea` en su JSON. Este
+-- UPDATE completa esos campos con los valores default sin pisar nada
+-- de lo que el vendedor ya haya configurado. Es seguro correrlo más de
+-- una vez (es idempotente: si el campo ya existe, `||` no lo modifica
+-- porque jsonb_build_object solo se usa como base y el objeto existente
+-- tiene prioridad al final).
+update public.ajustes
+set sistema = jsonb_build_object(
+    'ivaBasePct', 0.21,
+    'ivaPorLinea', jsonb_build_object('Modena', 0.21, 'Herrero', 0.105, 'A30', 0.105)
+  ) || sistema
+where not (sistema ? 'ivaBasePct') or not (sistema ? 'ivaPorLinea');
+
 
 
 -- ════════════════════════════════════════════════════════════════

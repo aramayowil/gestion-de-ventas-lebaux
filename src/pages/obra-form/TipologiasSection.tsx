@@ -21,7 +21,17 @@
  *   · Autocompletado de descripción: sugiere descripciones ya tipeadas
  *     por este vendedor en este dispositivo (descripciones-store), para
  *     no re-escribir textos largos que se repiten seguido.
+ *   · Aviso de campo incompleto (pasivo, sin texto ni toasts): si al
+ *     usuario se le olvida uno de los dos campos (descripción o precio)
+ *     habiendo cargado el otro, ese input puntual se marca con un borde
+ *     rojo sutil — un ítem recién creado con todo vacío no se marca en
+ *     rojo, porque ahí no hay nada "olvidado" todavía. La card en sí no
+ *     cambia de estilo, solo el input que falta.
+ *   · Desktop: línea y color quedan visibles por defecto (hay espacio
+ *     de sobra), en vez del disclosure colapsado que sí tiene sentido
+ *     en móvil.
  */
+
 import * as React from 'react'
 import { Plus, Minus, Trash2, Copy, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -45,8 +55,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { formatMoney, totalTipologia } from '@/lib/obra-totales'
-import type { Obra } from '@/lib/types'
+import { formatMoney, totalTipologia, desglosarIvaItem } from '@/lib/obra-totales'
+import type { LineaAbertura, Obra } from '@/lib/types'
 import { COLORES, LINEAS } from '@/lib/constants'
 import { useDescripcionesStore } from '@/lib/stores/descripciones-store'
 import { cn } from '@/lib/utils'
@@ -56,11 +66,25 @@ export function TipologiasContent({
   actualizarTipologia,
   eliminarTipologia,
   duplicarTipologia,
+  isDesktop = false,
+  ivaInfo,
 }: {
   tipologias: Obra['tipologias']
   actualizarTipologia: (id: string, patch: Partial<Obra['tipologias'][0]>) => void
   eliminarTipologia: (id: string) => void
   duplicarTipologia: (id: string) => void
+  /** En desktop, línea y color se muestran siempre destapados (hay
+   * espacio de sobra); en móvil quedan detrás del disclosure. */
+  isDesktop?: boolean
+  /** Si la obra tiene "Discriminar IVA" activo, cada ítem muestra su
+   * precio unitario ya ajustado (completado al IVA base) en vez del
+   * precio tal cual lo tipeó el vendedor — el input no se toca, solo
+   * cambia lo que se muestra. */
+  ivaInfo?: {
+    incluyeIva: boolean
+    ivaBasePct: number
+    ivaPorLinea: Record<LineaAbertura, number>
+  }
 }) {
   return (
     <>
@@ -72,6 +96,8 @@ export function TipologiasContent({
           onChange={(patch) => actualizarTipologia(t.id, patch)}
           onRemove={() => eliminarTipologia(t.id)}
           onDuplicate={() => duplicarTipologia(t.id)}
+          isDesktop={isDesktop}
+          ivaInfo={ivaInfo}
         />
       ))}
       {tipologias.length === 0 && (
@@ -83,17 +109,30 @@ export function TipologiasContent({
   )
 }
 
+/** Falta descripción y/o precio en este ítem. */
+function camposFaltantes(t: Obra['tipologias'][0]) {
+  return {
+    faltaDescripcion: t.descripcion.trim().length === 0,
+    faltaPrecio: !(t.precioUnitario > 0),
+  }
+}
+
 function PrecioUnitarioInput({
   value,
   onChange,
+  error,
 }: {
   value: number
   onChange: (v: number) => void
+  error?: boolean
 }) {
   return (
     <MoneyInput
       allowDecimals
-      className="h-11"
+      className={cn(
+        'h-11',
+        error && 'border-red-500/50 focus-visible:ring-red-500/30',
+      )}
       placeholder="0"
       value={value}
       onChange={(v) => onChange(Math.max(0, v))}
@@ -107,24 +146,52 @@ function TipologiaRow({
   onChange,
   onRemove,
   onDuplicate,
+  isDesktop = false,
+  ivaInfo,
 }: {
   index: number
   tipologia: Obra['tipologias'][0]
   onChange: (patch: Partial<Obra['tipologias'][0]>) => void
   onRemove: () => void
   onDuplicate: () => void
+  isDesktop?: boolean
+  ivaInfo?: {
+    incluyeIva: boolean
+    ivaBasePct: number
+    ivaPorLinea: Record<LineaAbertura, number>
+  }
 }) {
-  // Colapsado por defecto: línea y color ya vienen con un valor por
-  // default razonable (ver `nuevaTipologia()`), así que no hace falta
-  // mostrarlos abiertos para completar el ítem rápido.
+  // Colapsado por defecto en móvil: línea y color ya vienen con un valor
+  // por default razonable (ver `nuevaTipologia()`), así que no hace falta
+  // mostrarlos abiertos para completar el ítem rápido. En desktop hay
+  // espacio de sobra, así que quedan siempre visibles.
   const [detalleAbierto, setDetalleAbierto] = React.useState(false)
   const subtotal = totalTipologia(tipologia)
+
+  // Con "Discriminar IVA" activo, el precio unitario que tipeó el
+  // vendedor no cambia en el input — pero el chip de subtotal muestra
+  // el precio ya "completado" al IVA base de la línea (ver
+  // `desglosarIvaItem`), que es el que va a figurar en el presupuesto.
+  const desglose =
+    ivaInfo?.incluyeIva && subtotal > 0
+      ? desglosarIvaItem(tipologia, ivaInfo.ivaBasePct, ivaInfo.ivaPorLinea)
+      : null
+  const subtotalAjustado = desglose?.totalAjustado ?? subtotal
 
   // Un ítem "vacío" (recién agregado, sin tocar) se borra directo sin
   // confirmar. Uno con descripción o precio ya cargado sí confirma, para
   // no perder trabajo por un toque accidental en la papelera.
   const tieneContenido = tipologia.descripcion.trim().length > 0 || tipologia.precioUnitario > 0
   const [confirmarEliminar, setConfirmarEliminar] = React.useState(false)
+
+  // Estado de completitud, siempre visible y pasivo (sin texto ni
+  // toasts): cada input que falta se marca en rojo sutil directamente
+  // sobre ese campo. Un ítem 100% nuevo (los dos campos vacíos) queda
+  // neutro — recién se marca en rojo el campo vacío una vez que el otro
+  // ya tiene contenido, que es cuando de verdad "se olvidó algo".
+  const { faltaDescripcion, faltaPrecio } = camposFaltantes(tipologia)
+  const mostrarErrorDescripcion = faltaDescripcion && !faltaPrecio
+  const mostrarErrorPrecio = faltaPrecio && !faltaDescripcion
 
   function pedirEliminar() {
     if (tieneContenido) {
@@ -137,12 +204,16 @@ function TipologiaRow({
   return (
     <div className="rounded-xl border border-border/60 p-3 space-y-2.5 bg-card/60 backdrop-blur-sm">
       <div className="flex items-start gap-2">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/20 text-xs font-bold mt-1">
+        <span
+          className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/20 text-xs font-bold mt-1"
+          aria-hidden="true"
+        >
           {index + 1}
         </span>
         <DescripcionInput
           value={tipologia.descripcion}
           onChange={(v) => onChange({ descripcion: v })}
+          error={mostrarErrorDescripcion}
         />
         <div className="flex shrink-0 flex-col gap-1">
           <Button
@@ -204,75 +275,138 @@ function TipologiaRow({
           <PrecioUnitarioInput
             value={tipologia.precioUnitario}
             onChange={(v) => onChange({ precioUnitario: v })}
+            error={mostrarErrorPrecio}
           />
+          {desglose && tipologia.cantidad > 0 && (
+            <p className="text-[11px] text-muted-foreground leading-tight">
+              Con IVA: ${formatMoney(desglose.totalAjustado / tipologia.cantidad)}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Disclosure: línea y color, colapsado por defecto + subtotal chip */}
-      <div className="flex items-center justify-between gap-2 pt-0.5">
-        <button
-          type="button"
-          onClick={() => setDetalleAbierto((v) => !v)}
-          className="flex min-w-0 items-center gap-1 rounded-md py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronDown
-            className={cn('size-3.5 shrink-0 transition-transform', detalleAbierto && 'rotate-180')}
-            aria-hidden="true"
-          />
-          <span className="shrink-0">Línea y color</span>
-          {!detalleAbierto && (
-            <span className="truncate text-muted-foreground/70">
-              · {tipologia.linea} / {tipologia.color}
+      {/* Desktop: línea y color siempre visibles (hay espacio de sobra).
+          Móvil: disclosure colapsado por defecto + subtotal chip. */}
+      {isDesktop ? (
+        <div className="flex items-end justify-between gap-3 pt-0.5">
+          <div className="grid flex-1 grid-cols-2 gap-2">
+            <div className="grid gap-1">
+              <Label className="text-xs">Línea</Label>
+              <Select
+                value={tipologia.linea}
+                onValueChange={(v) => onChange({ linea: v as Obra['tipologias'][0]['linea'] })}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LINEAS.map((l) => (
+                    <SelectItem key={l} value={l}>
+                      {l}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Color</Label>
+              <Select
+                value={tipologia.color}
+                onValueChange={(v) => onChange({ color: v as Obra['tipologias'][0]['color'] })}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COLORES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {subtotal > 0 && (
+            <span
+              className="shrink-0 rounded-full bg-muted/50 px-2.5 py-1 text-xs font-medium tabular-nums money text-foreground/80"
+              title={desglose ? `Con IVA discriminado (${Math.round(ivaInfo!.ivaBasePct * 1000) / 10}%)` : undefined}
+            >
+              ${formatMoney(subtotalAjustado)}
             </span>
           )}
-        </button>
-
-        {subtotal > 0 && (
-          <span className="shrink-0 rounded-full bg-muted/50 px-2 py-0.5 text-xs font-medium tabular-nums money text-foreground/80">
-            ${formatMoney(subtotal)}
-          </span>
-        )}
-      </div>
-
-      {detalleAbierto && (
-        <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="grid gap-1">
-            <Label className="text-xs">Línea</Label>
-            <Select
-              value={tipologia.linea}
-              onValueChange={(v) => onChange({ linea: v as Obra['tipologias'][0]['linea'] })}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LINEAS.map((l) => (
-                  <SelectItem key={l} value={l}>
-                    {l}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-1">
-            <Label className="text-xs">Color</Label>
-            <Select
-              value={tipologia.color}
-              onValueChange={(v) => onChange({ color: v as Obra['tipologias'][0]['color'] })}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {COLORES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={() => setDetalleAbierto((v) => !v)}
+              className="flex min-w-0 items-center gap-1 rounded-md py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ChevronDown
+                className={cn('size-3.5 shrink-0 transition-transform', detalleAbierto && 'rotate-180')}
+                aria-hidden="true"
+              />
+              <span className="shrink-0">Línea y color</span>
+              {!detalleAbierto && (
+                <span className="truncate text-muted-foreground/70">
+                  · {tipologia.linea} / {tipologia.color}
+                </span>
+              )}
+            </button>
+
+            {subtotal > 0 && (
+              <span
+                className="shrink-0 rounded-full bg-muted/50 px-2 py-0.5 text-xs font-medium tabular-nums money text-foreground/80"
+                title={desglose ? `Con IVA discriminado (${Math.round(ivaInfo!.ivaBasePct * 1000) / 10}%)` : undefined}
+              >
+                ${formatMoney(subtotalAjustado)}
+              </span>
+            )}
+          </div>
+
+          {detalleAbierto && (
+            <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="grid gap-1">
+                <Label className="text-xs">Línea</Label>
+                <Select
+                  value={tipologia.linea}
+                  onValueChange={(v) => onChange({ linea: v as Obra['tipologias'][0]['linea'] })}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LINEAS.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {l}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1">
+                <Label className="text-xs">Color</Label>
+                <Select
+                  value={tipologia.color}
+                  onValueChange={(v) => onChange({ color: v as Obra['tipologias'][0]['color'] })}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLORES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <AlertDialog open={confirmarEliminar} onOpenChange={setConfirmarEliminar}>
@@ -308,9 +442,11 @@ function TipologiaRow({
 function DescripcionInput({
   value,
   onChange,
+  error,
 }: {
   value: string
   onChange: (v: string) => void
+  error?: boolean
 }) {
   const buscar = useDescripcionesStore((s) => s.buscar)
   const [foco, setFoco] = React.useState(false)
@@ -346,7 +482,10 @@ function DescripcionInput({
           setSugerencias(buscar(value))
         }}
         placeholder="Ej: Ventana corrediza 2 hojas — 1,20 x 1,10 m"
-        className="min-h-11 resize-y"
+        className={cn(
+          'min-h-11 resize-y',
+          error && 'border-red-500/50 focus-visible:ring-red-500/30',
+        )}
       />
       {foco && sugerencias.length > 0 && (
         <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-border/60 bg-popover shadow-lg">

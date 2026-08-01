@@ -27,6 +27,7 @@ import {
   formatMoney,
   formatFechaCorta,
   formatFechaLarga,
+  redondearMoneda,
 } from '@/lib/obra-totales'
 import { EMPRESA_DEFAULT } from '@/lib/constants'
 
@@ -307,29 +308,35 @@ function FilaElemento({
   linea,
   color,
   precioUnitario,
+  precioUnitarioAjustado,
 }: {
   descripcion: string
   cantidad: number
   linea: string
   color: string
   precioUnitario: number
+  /** Precio unitario ya "completado" al IVA base (solo cuando
+   * `incluyeIva` está activo) — reemplaza al precio unitario original
+   * en la vista, no se muestra por separado. */
+  precioUnitarioAjustado?: number
 }) {
-  const total = (cantidad || 0) * (precioUnitario || 0)
+  const precioAMostrar = precioUnitarioAjustado ?? precioUnitario
+  const total = (cantidad || 0) * (precioAMostrar || 0)
   return (
     <View style={styles.tablaRow} wrap={false}>
       <Text style={styles.colCantidad}>{cantidad}</Text>
       <View style={styles.colDescripcion}>
         <Text style={styles.itemTitulo}>{descripcion || '—'}</Text>
-        {precioUnitario > 0 ? (
+        {precioAMostrar > 0 ? (
           <Text style={styles.itemSub}>
-            P. unit.: ${formatMoney(precioUnitario)}
+            P. unit.: ${formatMoney(precioAMostrar)}
           </Text>
         ) : null}
       </View>
       <Text style={styles.colLinea}>{linea}</Text>
       <Text style={styles.colColor}>{color}</Text>
       <Text style={styles.colPrecio}>
-        {precioUnitario > 0 ? `$${formatMoney(precioUnitario)}` : '—'}
+        {precioAMostrar > 0 ? `$${formatMoney(precioAMostrar)}` : '—'}
       </Text>
       <Text style={styles.colTotal}>
         {total > 0 ? `$${formatMoney(total)}` : '—'}
@@ -417,23 +424,33 @@ export function PresupuestoPdfLayout({
           <Text style={styles.colPrecio}>P. Unit</Text>
           <Text style={styles.colTotal}>Total</Text>
         </View>
-        {obra.tipologias.map((t) => (
-          <FilaElemento
-            key={t.id}
-            descripcion={t.descripcion}
-            cantidad={t.cantidad}
-            linea={t.linea}
-            color={t.color}
-            precioUnitario={t.precioUnitario}
-          />
-        ))}
+        {obra.tipologias.map((t) => {
+          const desglose = totales.desgloseItems.find((d) => d.tipologiaId === t.id)
+          const precioUnitarioAjustado =
+            totales.incluyeIva && desglose && t.cantidad > 0
+              ? redondearMoneda(desglose.totalAjustado / t.cantidad)
+              : undefined
+          return (
+            <FilaElemento
+              key={t.id}
+              descripcion={t.descripcion}
+              cantidad={t.cantidad}
+              linea={t.linea}
+              color={t.color}
+              precioUnitario={t.precioUnitario}
+              precioUnitarioAjustado={precioUnitarioAjustado}
+            />
+          )
+        })}
 
         {/* Sub-totales */}
         <View style={styles.subtotalesBox}>
           <View style={styles.subtotalesTabla}>
             <View style={styles.subtotalFila}>
               <Text>Total bruto:</Text>
-              <Text>${formatMoney(totales.totalBruto)}</Text>
+              <Text>
+                ${formatMoney(totales.incluyeIva ? totales.totalAjustadoIva : totales.totalBruto)}
+              </Text>
             </View>
             {totales.descuentoPct > 0 && (
               <View style={styles.subtotalFila}>
@@ -444,10 +461,16 @@ export function PresupuestoPdfLayout({
               </View>
             )}
             {totales.incluyeIva && (
-              <View style={styles.subtotalFila}>
-                <Text>IVA ({Math.round(totales.ivaPct * 1000) / 10}%):</Text>
-                <Text>+ ${formatMoney(totales.ivaMonto)}</Text>
-              </View>
+              <>
+                <View style={styles.subtotalFila}>
+                  <Text>Precio base (neto):</Text>
+                  <Text>${formatMoney(totales.totalBaseConDescuento)}</Text>
+                </View>
+                <View style={styles.subtotalFila}>
+                  <Text>IVA ({Math.round(totales.ivaPct * 1000) / 10}%):</Text>
+                  <Text>+ ${formatMoney(totales.ivaMonto)}</Text>
+                </View>
+              </>
             )}
             <View style={styles.subtotalFilaDestacada}>
               <Text>TOTAL:</Text>

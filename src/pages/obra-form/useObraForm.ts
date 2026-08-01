@@ -31,6 +31,8 @@ import {
   useUpdatePago,
   useDeletePago,
   useSiguienteNumeroRecibo,
+  useAjustes,
+  AJUSTES_DEFAULT,
 } from '@/hooks/queries'
 import { useBorradorStore } from '@/lib/stores/borrador-store'
 import { useDescripcionesStore } from '@/lib/stores/descripciones-store'
@@ -201,7 +203,30 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
     }
   }, [permitePagoInicial, pagoInicialMonto])
 
-  const totales = React.useMemo(() => calcularTotalesObra(obra, []), [obra])
+  // IVA por línea configurado en Ajustes (ivaBasePct = tope, ej. 21%;
+  // ivaPorLinea = IVA que cada línea ya trae incluido en su precio).
+  // Se usan solo cuando `incluyeIva` está activo, para el desglose
+  // correcto del presupuesto por ítem.
+  const sistemaAjustes = useAjustes(null).data?.sistema ?? AJUSTES_DEFAULT.sistema
+  const ivaConfig = React.useMemo(
+    () => ({
+      ivaBasePct: sistemaAjustes.ivaBasePct,
+      ivaPorLinea: sistemaAjustes.ivaPorLinea,
+    }),
+    [sistemaAjustes],
+  )
+
+  const totales = React.useMemo(
+    () => calcularTotalesObra(obra, [], ivaConfig),
+    [obra, ivaConfig],
+  )
+
+  // Para que TipologiasSection muestre el precio unitario ya ajustado
+  // en cada ítem cuando el vendedor activa "Discriminar IVA".
+  const ivaInfo = React.useMemo(
+    () => ({ incluyeIva: !!obra.incluyeIva, ...ivaConfig }),
+    [obra.incluyeIva, ivaConfig],
+  )
 
   /* ──────────── Autosave de borrador con debounce (solo obras nuevas) ────────────
    * Cada cambio al form se re-guarda en borrador-store tras 400ms de inactividad,
@@ -257,11 +282,17 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
       : null
 
   const totalAberturas = obra.tipologias.reduce((acc, t) => acc + (t.cantidad || 0), 0)
+  // Ítems sin descripción o sin precio: mismo criterio que el círculo
+  // verde/ámbar de cada fila, para que el subtítulo del acordeón (visible
+  // con la sección cerrada) adelante si hay algo pendiente adentro.
+  const itemsIncompletos = obra.tipologias.filter(
+    (t) => t.descripcion.trim().length === 0 || !(t.precioUnitario > 0),
+  ).length
   const aberturasSubtitle =
     obra.tipologias.length > 0
       ? `${obra.tipologias.length} ítem${obra.tipologias.length === 1 ? '' : 's'} · ${totalAberturas} abertura${totalAberturas === 1 ? '' : 's'}${
           totales.totalConIva > 0 ? ` · $${formatMoney(totales.totalConIva)}` : ''
-        }`
+        }${itemsIncompletos > 0 ? ` · ${itemsIncompletos} por completar` : ''}`
       : 'Agregá al menos una abertura para empezar'
   const pagoSubtitle = `Total: $${formatMoney(totales.totalConIva)}`
 
@@ -562,6 +593,7 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
     esPresupuestoAbierto,
     esVentaCerrada,
     totales,
+    ivaInfo,
     tipologiasValidas,
     pagoInicialNum,
     pagoInicialValido,

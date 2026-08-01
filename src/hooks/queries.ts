@@ -945,8 +945,18 @@ export function useAjustes(
         : await query.is('vendedor_id', null).limit(1).maybeSingle()
       if (error || !data) return AJUSTES_DEFAULT
       return {
-        empresa: data.empresa as ConfigEmpresa,
-        sistema: data.sistema as ConfigSistema,
+        empresa: { ...EMPRESA_DEFAULT, ...(data.empresa as ConfigEmpresa) },
+        // Merge con defaults: si la fila en la base es de antes de que
+        // existieran `ivaBasePct`/`ivaPorLinea`, completamos con los
+        // valores por defecto en vez de dejarlos `undefined`.
+        sistema: {
+          ...SISTEMA_DEFAULT,
+          ...(data.sistema as ConfigSistema),
+          ivaPorLinea: {
+            ...SISTEMA_DEFAULT.ivaPorLinea,
+            ...((data.sistema as ConfigSistema)?.ivaPorLinea ?? {}),
+          },
+        },
       }
     },
     staleTime: 5 * 60_000,

@@ -4,17 +4,24 @@
  * Acordeón (móvil) / Card (desktop) ÚNICO que agrupa TODA la configuración
  * de la obra que no son aberturas:
  *   · Forma de pago (default 'A convenir').
- *   · Switch + input de "Aplicar descuento (%)".
- *   · Switch + input de "Incluir IVA (%)".
+ *   · Switch + input de "Aplicar descuento (%)" + selector de sobre qué
+ *     base aplicarlo (precio final con IVA vs. precio neto — ver
+ *     explicación inline, matemáticamente da el mismo total final).
+ *   · Switch de "Discriminar IVA": ya no permite tipear una alícuota a
+ *     mano — el IVA de cada ítem sale de la línea (Modena/Herrero/A30)
+ *     configurada en Ajustes, y el sistema descompone cada ítem a su
+ *     precio base (neto) automáticamente. El IVA final que se muestra
+ *     es siempre el IVA "base"/tope del sistema (ej. 21%).
  *   · Checkbox + monto + forma de pago de "Pago inicial" (solo si la obra
  *     permite pago inicial: ventas y presupuestos aceptados).
- *   · Resumen de totales (bruto, descuento, IVA, total).
+ *   · Resumen de totales: si se discrimina IVA, se listan los precios
+ *     base por ítem antes del total (bruto, descuento, IVA, total).
  *
  * Al editar una venta que ya tiene pagos, el checkbox se carga tildado
  * con el monto del PRIMER pago registrado (editable).
  */
 import * as React from 'react'
-import { Percent, Receipt, Wallet } from 'lucide-react'
+import { Percent, Receipt, Wallet, Info } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { NumericInput } from '@/components/ui/numeric-input'
@@ -74,31 +81,35 @@ export function AplicarDescuentosAccordion({
   pagoInicialActivo,
   setPagoInicialActivo,
 }: Props) {
-  const ivaPctSistema = useAjustes(null).data?.sistema.ivaPct ?? AJUSTES_DEFAULT.sistema.ivaPct
-  const totales = React.useMemo(() => calcularTotalesObra(obra, []), [obra])
+  const sistema = useAjustes(null).data?.sistema ?? AJUSTES_DEFAULT.sistema
+  const ivaConfig = React.useMemo(
+    () => ({ ivaBasePct: sistema.ivaBasePct, ivaPorLinea: sistema.ivaPorLinea }),
+    [sistema],
+  )
+  const totales = React.useMemo(
+    () => calcularTotalesObra(obra, [], ivaConfig),
+    [obra, ivaConfig],
+  )
 
   const tieneDescuento = obra.descuentoPct > 0
   const tieneIva = !!obra.incluyeIva
+  const descuentoBase = obra.descuentoBase ?? 'final'
 
   function toggleDescuento(activar: boolean) {
-    setObra((o) => ({ ...o, descuentoPct: activar ? 0.1 : 0 }))
+    setObra((o) => ({
+      ...o,
+      descuentoPct: activar ? 0.1 : 0,
+      descuentoBase: o.descuentoBase ?? 'final',
+    }))
   }
   function cambiarDescuentoPct(pct: number) {
     setObra((o) => ({ ...o, descuentoPct: Math.max(0, Math.min(100, pct)) / 100 }))
   }
-  function toggleIva(activar: boolean) {
-    setObra((o) => ({
-      ...o,
-      incluyeIva: activar,
-      ivaPct: activar ? (o.ivaPct && o.ivaPct > 0 ? o.ivaPct : ivaPctSistema) : o.ivaPct,
-    }))
+  function cambiarDescuentoBase(base: 'final' | 'neto') {
+    setObra((o) => ({ ...o, descuentoBase: base }))
   }
-  function cambiarIvaPct(pct: number) {
-    setObra((o) => ({
-      ...o,
-      incluyeIva: true,
-      ivaPct: Math.max(0, Math.min(100, pct)) / 100,
-    }))
+  function toggleIva(activar: boolean) {
+    setObra((o) => ({ ...o, incluyeIva: activar }))
   }
 
   const inner = (
@@ -143,20 +154,46 @@ export function AplicarDescuentosAccordion({
           />
         </div>
         {tieneDescuento && (
-          <div className="grid gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-            <Label htmlFor="descuento-pct" className="text-xs text-muted-foreground">
-              Porcentaje de descuento (%)
-            </Label>
-            <NumericInput
-              id="descuento-pct"
-              allowDecimals
-              min={0}
-              max={100}
-              className="h-11"
-              value={Math.round(obra.descuentoPct * 1000) / 10}
-              onChange={cambiarDescuentoPct}
-              placeholder="10"
-            />
+          <div className="grid gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="grid gap-1.5">
+              <Label htmlFor="descuento-pct" className="text-xs text-muted-foreground">
+                Porcentaje de descuento (%)
+              </Label>
+              <NumericInput
+                id="descuento-pct"
+                allowDecimals
+                min={0}
+                max={100}
+                className="h-11"
+                value={Math.round(obra.descuentoPct * 1000) / 10}
+                onChange={cambiarDescuentoPct}
+                placeholder="10"
+              />
+            </div>
+
+            {/* Sobre qué base se aplica: solo importa el número mostrado
+                en el desglose si además se discrimina IVA — el total
+                final da igual en ambos casos. */}
+            <div className="grid gap-1.5">
+              <Label className="text-xs text-muted-foreground">
+                ¿Sobre qué aplicar el descuento?
+              </Label>
+              <Select value={descuentoBase} onValueChange={(v) => cambiarDescuentoBase(v as 'final' | 'neto')}>
+                <SelectTrigger className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="final">Precio final (con IVA incluido)</SelectItem>
+                  <SelectItem value="neto">Precio neto (sin IVA)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                <Info className="size-3.5 shrink-0 mt-px" aria-hidden="true" />
+                {descuentoBase === 'final'
+                  ? 'Estándar en venta al público: el descuento se calcula sobre el precio final que ve el cliente (el IVA se reduce proporcionalmente). El total a cobrar es el mismo que descontando sobre el neto.'
+                  : 'Estándar B2B/mayorista: el descuento se calcula sobre el precio neto (sin IVA) y luego se suma el IVA sobre ese valor ya descontado. El total a cobrar es el mismo que descontando sobre el final.'}
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -166,34 +203,22 @@ export function AplicarDescuentosAccordion({
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor="switch-iva" className="text-sm font-medium flex items-center gap-2">
             <Receipt className="size-3.5 text-primary" />
-            Incluir IVA
+            Discriminar IVA
           </Label>
           <Switch
             id="switch-iva"
             checked={tieneIva}
             onCheckedChange={toggleIva}
-            aria-label="Incluir IVA"
+            aria-label="Discriminar IVA"
           />
         </div>
         {tieneIva && (
-          <div className="grid gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
-            <Label htmlFor="iva-pct" className="text-xs text-muted-foreground">
-              Alícuota de IVA (%)
-            </Label>
-            <NumericInput
-              id="iva-pct"
-              allowDecimals
-              min={0}
-              max={100}
-              className="h-11"
-              value={Math.round((obra.ivaPct ?? ivaPctSistema) * 1000) / 10}
-              onChange={cambiarIvaPct}
-              placeholder="10.5"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Default desde Ajustes: {Math.round(ivaPctSistema * 1000) / 10}%
-            </p>
-          </div>
+          <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground animate-in fade-in slide-in-from-top-1 duration-200">
+            <Info className="size-3.5 shrink-0 mt-px" aria-hidden="true" />
+            Cada ítem se descompone a su precio base según el IVA que ya
+            trae su línea (configurado en Ajustes) y el total se
+            expresa al {Math.round(ivaConfig.ivaBasePct * 1000) / 10}% de IVA.
+          </p>
         )}
       </div>
 
@@ -256,7 +281,10 @@ export function AplicarDescuentosAccordion({
 
       {/* ── Resumen ── */}
       <div className="rounded-xl border border-border/60 divide-y divide-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
-        <FilaResumen label="Total bruto" value={totales.totalBruto} />
+        <FilaResumen
+          label="Total bruto"
+          value={totales.incluyeIva ? totales.totalAjustadoIva : totales.totalBruto}
+        />
         {totales.descuentoMonto > 0 && (
           <FilaResumen
             label={`Descuento (${Math.round(totales.descuentoPct * 100)}%)`}
@@ -265,11 +293,14 @@ export function AplicarDescuentosAccordion({
           />
         )}
         {totales.incluyeIva && (
-          <FilaResumen
-            label={`IVA (${Math.round(totales.ivaPct * 1000) / 10}%)`}
-            value={totales.ivaMonto}
-            tone="success"
-          />
+          <>
+            <FilaResumen label="Precio base (neto)" value={totales.totalBaseConDescuento} />
+            <FilaResumen
+              label={`IVA (${Math.round(totales.ivaPct * 1000) / 10}%)`}
+              value={totales.ivaMonto}
+              tone="success"
+            />
+          </>
         )}
         <FilaResumen
           label="Total"
@@ -301,7 +332,7 @@ export function AplicarDescuentosAccordion({
       title="Forma de pago, descuentos, IVA y pago inicial"
       subtitle={
         complete
-          ? `${tieneDescuento ? `−${Math.round(obra.descuentoPct * 100)}%` : ''}${tieneDescuento && tieneIva ? ' · ' : ''}${tieneIva ? `IVA ${Math.round((obra.ivaPct ?? ivaPctSistema) * 1000) / 10}%` : ''}${(tieneDescuento || tieneIva) && pagoInicialActivo ? ' · ' : ''}${pagoInicialActivo && permitePagoInicial ? 'Con pago inicial' : ''}`
+          ? `${tieneDescuento ? `−${Math.round(obra.descuentoPct * 100)}%` : ''}${tieneDescuento && tieneIva ? ' · ' : ''}${tieneIva ? `IVA ${Math.round(ivaConfig.ivaBasePct * 1000) / 10}%` : ''}${(tieneDescuento || tieneIva) && pagoInicialActivo ? ' · ' : ''}${pagoInicialActivo && permitePagoInicial ? 'Con pago inicial' : ''}`
           : 'Sin descuento ni IVA'
       }
       icon={<Wallet className="size-4" />}

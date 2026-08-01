@@ -70,8 +70,12 @@ export function PresupuestoModal({
   const nombreEmpresa = ajustes.empresa.nombre
 
   const totales = React.useMemo(
-    () => calcularTotalesObra(obra, []),
-    [obra],
+    () =>
+      calcularTotalesObra(obra, [], {
+        ivaBasePct: ajustes.sistema.ivaBasePct,
+        ivaPorLinea: ajustes.sistema.ivaPorLinea,
+      }),
+    [obra, ajustes.sistema.ivaBasePct, ajustes.sistema.ivaPorLinea],
   )
 
   const mensaje = React.useMemo(
@@ -153,7 +157,9 @@ export function PresupuestoModal({
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Total bruto</span>
-              <span className="money">${formatMoney(totales.totalBruto)}</span>
+              <span className="money">
+                ${formatMoney(totales.incluyeIva ? totales.totalAjustadoIva : totales.totalBruto)}
+              </span>
             </div>
             {totales.descuentoMonto > 0 && (
               <div className="flex items-center justify-between text-sm">
@@ -166,14 +172,20 @@ export function PresupuestoModal({
               </div>
             )}
             {totales.incluyeIva && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  IVA ({Math.round(totales.ivaPct * 1000) / 10}%)
-                </span>
-                <span className="money text-success">
-                  +${formatMoney(totales.ivaMonto)}
-                </span>
-              </div>
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Precio base (neto)</span>
+                  <span className="money">${formatMoney(totales.totalBaseConDescuento)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    IVA ({Math.round(totales.ivaPct * 1000) / 10}%)
+                  </span>
+                  <span className="money text-success">
+                    +${formatMoney(totales.ivaMonto)}
+                  </span>
+                </div>
+              </>
             )}
             <div className="flex items-center justify-between pt-2 border-t border-border/40 text-base font-semibold">
               <span>Total</span>

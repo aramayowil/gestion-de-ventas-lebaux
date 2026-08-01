@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button'
 import { ComprobantePdfButton } from '@/components/pdf/ComprobantePdfButton'
 import { ReciboPagoPdfButton } from '@/components/pdf/ReciboPagoPdfButton'
 import { Skeleton } from '@/components/ui/skeleton'
-import { usePagos } from '@/hooks/queries'
+import { usePagos, useAjustes, AJUSTES_DEFAULT } from '@/hooks/queries'
 import { calcularTotalesObra, formatMoney } from '@/lib/obra-totales'
 import type { Cliente, Obra, Pago } from '@/lib/types'
 
@@ -41,7 +41,11 @@ export function FinalizarVentaModal({ open, obra, cliente, pagoInicial, onVolver
   // cliente), el saldo mostrado acá y en los PDFs debe reflejarlos a
   // todos, no solo al último pago que se acaba de guardar.
   const { data: todosLosPagosDeEstaObra = [], isLoading: cargandoPagos } = usePagos([obra.id])
-  const totales = calcularTotalesObra(obra, todosLosPagosDeEstaObra)
+  const sistema = useAjustes(null).data?.sistema ?? AJUSTES_DEFAULT.sistema
+  const totales = calcularTotalesObra(obra, todosLosPagosDeEstaObra, {
+    ivaBasePct: sistema.ivaBasePct,
+    ivaPorLinea: sistema.ivaPorLinea,
+  })
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>

@@ -28,6 +28,14 @@ export const SISTEMA_DEFAULT: ConfigSistema = {
   prefijoWhatsApp: '54',
   moneda: 'ARS',
   ivaPct: 0.105,
+  // IVA base (tope) al que debe llegar cualquier ítem al discriminar
+  // IVA, y el IVA que cada línea ya trae incluido en su precio.
+  ivaBasePct: 0.21,
+  ivaPorLinea: {
+    Modena: 0.21,
+    Herrero: 0.105,
+    A30: 0.105,
+  },
 }
 
 /** Etiquetas de estado de presupuesto (solo para UI). */

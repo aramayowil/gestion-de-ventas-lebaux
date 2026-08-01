@@ -89,6 +89,14 @@ export interface Obra {
   tipologias: DatosTipologia[]
   formaPago?: FormaPago
   descuentoPct: number // 0..1 (fracción)
+  /** Sobre qué base se aplica el descuento:
+   *   · 'final'  — sobre el precio final con IVA incluido (estándar en
+   *                venta a consumidor final). Default histórico.
+   *   · 'neto'   — sobre el precio neto/base sin IVA (estándar B2B).
+   * Solo importa cuando `incluyeIva` está activo; matemáticamente el
+   * total final da igual, pero cambia qué número se muestra descontado
+   * en el desglose del presupuesto. */
+  descuentoBase?: 'final' | 'neto'
   creadoEn: string
 
   /** Elegido en el modal previo a cargar la obra. Obras viejas sin este
@@ -126,17 +134,62 @@ export interface Pago {
   creadoEn: string
 }
 
+/** Desglose de IVA de un ítem al discriminar. El precio unitario que
+ * tipeó el vendedor NUNCA se modifica en el formulario — esto es
+ * puramente derivado para mostrar, en el presupuesto/venta, el nuevo
+ * precio del ítem ya "completado" al IVA base.
+ *
+ * Fórmula: cada línea ya trae incluido un IVA propio (`ivaLinea`, ej.
+ * Herrero 10.5%). La diferencia contra el IVA base del sistema (ej.
+ * 21%) es lo que falta agregarle al precio:
+ *   diferenciaIva  = ivaBasePct − ivaLinea        (ej. 0.21 − 0.105 = 0.105)
+ *   totalAjustado  = totalItem × (1 + diferenciaIva)
+ * Si la línea ya está al IVA base (ej. Modena 21%), diferenciaIva = 0
+ * y `totalAjustado` = `totalItem` sin cambios — pero igual se muestra
+ * el label con el nuevo precio, aunque sea igual al original.
+ */
+export interface DesgloseIvaItem {
+  tipologiaId: string
+  /** precioUnitario × cantidad, tal cual lo cargó el vendedor (sin tocar). */
+  totalItem: number
+  /** IVA (0..1) que ya trae incluido el precio de esta línea. */
+  ivaLinea: number
+  /** ivaBasePct − ivaLinea (0 si la línea ya está al tope). */
+  diferenciaIva: number
+  /** totalItem × (1 + diferenciaIva): nuevo precio del ítem, ya
+   * completado al IVA base. Es el que se muestra como label en el
+   * presupuesto/venta y el que se usa para sumar el total. */
+  totalAjustado: number
+}
+
 /* ────────────── Totales derivados ────────────── */
 export interface TotalesObra {
   totalBruto: number
   descuentoPct: number
+  descuentoBase: 'final' | 'neto'
   descuentoMonto: number
   totalConDescuento: number
   /** ── IVA (solo informativo — no afecta saldoPendiente/pagos) ── */
   incluyeIva: boolean
+  /** IVA "tope"/base del sistema (0..1, ej. 0.21). Al discriminar, es
+   * la alícuota a la que queda expresado el total final. */
   ivaPct: number
+  /** Detalle por ítem: precio original, diferencia de IVA de su línea
+   * contra el IVA base, y el nuevo precio ya completado (el que se
+   * muestra como label en el presupuesto/venta). Vacío si `incluyeIva`
+   * es false. */
+  desgloseItems: DesgloseIvaItem[]
+  /** Suma de `totalAjustado` de todos los ítems (antes de descuento).
+   * Es el total "ya con el 21% completo" de cada línea. */
+  totalAjustadoIva: number
+  /** totalAjustadoIva con el descuento aplicado. */
+  totalAjustadoConDescuento: number
+  /** Precio base/neto derivado de `totalAjustadoConDescuento` al
+   * IVA base (totalAjustadoConDescuento ÷ (1 + ivaPct)). Es lo que se
+   * muestra como "Precio base" en el resumen final. */
+  totalBaseConDescuento: number
   ivaMonto: number
-  /** totalConDescuento + ivaMonto. Es el importe final a mostrar/cobrar. */
+  /** totalAjustadoConDescuento. Es el importe final a mostrar/cobrar. */
   totalConIva: number
   totalAbonado: number
   saldoPendiente: number
@@ -162,6 +215,17 @@ export interface ConfigSistema {
   moneda: string
   /** Alícuota de IVA (0..1) que se ofrece al armar un presupuesto. */
   ivaPct: number
+  /** Alícuota de IVA "tope" (0..1, ej. 0.21) a la que debe llegar
+   * cualquier ítem al discriminar IVA. Cada línea tiene su propia
+   * alícuota ya incluida en el precio que carga el vendedor (ver
+   * `ivaPorLinea`); si es menor al IVA base, el precio de esa línea se
+   * reajusta hacia arriba al activar "Incluir IVA". */
+  ivaBasePct: number
+  /** Alícuota de IVA (0..1) que ya viene incluida en el precio unitario
+   * que el vendedor tipea, por línea de abertura. Ej: Modena 0.21 (ya
+   * está al tope, no se ajusta), Herrero 0.105 (se completa hasta el
+   * IVA base al discriminar). */
+  ivaPorLinea: Record<LineaAbertura, number>
 }
 
 /* ────────────── Fábricas ────────────── */
@@ -198,6 +262,7 @@ export function nuevaObra(clienteId: string, tipo: TipoObra = 'venta'): Obra {
     tipologias: [nuevaTipologia()],
     formaPago: 'A convenir',
     descuentoPct: 0,
+    descuentoBase: 'final',
     creadoEn: ahora,
     estadoPresupuesto: 'borrador',
     tipo,

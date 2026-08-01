@@ -4,7 +4,9 @@
  */
 import type {
   DatosTipologia,
+  DesgloseIvaItem,
   EstadoPago,
+  LineaAbertura,
   Obra,
   Pago,
   TotalesObra,
@@ -23,6 +25,38 @@ export function totalTipologia(t: DatosTipologia): number {
   return redondearMoneda((t.cantidad || 0) * (t.precioUnitario || 0))
 }
 
+/**
+ * Calcula el nuevo precio de un ítem al discriminar IVA, según el IVA
+ * que su línea ya trae incluido (`ivaPorLinea`) contra el IVA "tope"
+ * del sistema (`ivaBasePct`). El precio unitario que tipeó el vendedor
+ * NUNCA se modifica — esto es puramente derivado, para mostrar el
+ * nuevo precio del ítem (label) en el presupuesto/venta.
+ *
+ *   diferenciaIva = ivaBasePct − ivaLinea   (ej. 0.21 − 0.105 = 0.105)
+ *   totalAjustado = totalItem × (1 + diferenciaIva)
+ *
+ * Si la línea ya está al IVA base (ej. Modena 21%), diferenciaIva = 0
+ * y `totalAjustado` = `totalItem`, sin incremento — pero se sigue
+ * devolviendo el detalle para mostrar el label igual.
+ */
+export function desglosarIvaItem(
+  t: DatosTipologia,
+  ivaBasePct: number,
+  ivaPorLinea: Record<LineaAbertura, number>,
+): DesgloseIvaItem {
+  const ivaLinea = ivaPorLinea?.[t.linea] ?? ivaBasePct
+  const totalItem = totalTipologia(t)
+  const diferenciaIva = Math.max(0, ivaBasePct - ivaLinea)
+  const totalAjustado = redondearMoneda(totalItem * (1 + diferenciaIva))
+  return {
+    tipologiaId: t.id,
+    totalItem,
+    ivaLinea,
+    diferenciaIva,
+    totalAjustado,
+  }
+}
+
 export function totalAbonadoDePagos(pagos: Pago[]): number {
   return redondearMoneda(
     pagos
@@ -31,34 +65,117 @@ export function totalAbonadoDePagos(pagos: Pago[]): number {
   )
 }
 
+/**
+ * Calcula todos los totales de una obra, incluyendo el desglose de IVA
+ * por línea cuando `incluyeIva` está activo.
+ *
+ * Flujo cuando se discrimina IVA:
+ *   1. Cada ítem se "completa" a su nuevo precio según la diferencia
+ *      entre el IVA base del sistema y el IVA que su línea ya trae
+ *      incluido (`ivaPorLinea`) — el precio unitario que tipeó el
+ *      vendedor no se toca en ningún momento, solo se deriva un nuevo
+ *      total ajustado por ítem (ver `desglosarIvaItem`).
+ *   2. Se suman todos los `totalAjustado` → `totalAjustadoIva`. Este
+ *      total ya "contiene" el IVA base (21%) en todos sus ítems.
+ *   3. El descuento se aplica sobre ese total ajustado (o, si
+ *      `descuentoBase` es 'final', se muestra expresado sobre el total
+ *      bruto original — el resultado final da igual en ambos casos).
+ *   4. Del total ajustado ya con descuento se deriva el precio base
+ *      (neto) y el IVA final, descomponiendo al IVA base:
+ *        totalBaseConDescuento = totalAjustadoConDescuento ÷ (1 + ivaBase)
+ *        ivaMonto = totalAjustadoConDescuento − totalBaseConDescuento
+ *
+ * Cuando `incluyeIva` es false, el cálculo es el de siempre: descuento
+ * sobre `totalBruto` sin ningún desglose de IVA.
+ */
 export function calcularTotalesObra(
-  obra: Pick<Obra, 'tipologias' | 'descuentoPct' | 'incluyeIva' | 'ivaPct'>,
+  obra: Pick<
+    Obra,
+    'tipologias' | 'descuentoPct' | 'descuentoBase' | 'incluyeIva' | 'ivaPct'
+  >,
   pagos: Pago[],
+  ivaConfig?: {
+    /** IVA "tope" del sistema (0..1, ej. 0.21). */
+    ivaBasePct: number
+    /** IVA (0..1) ya incluido en el precio de cada línea. */
+    ivaPorLinea: Record<LineaAbertura, number>
+  },
 ): TotalesObra {
   const totalBruto = redondearMoneda(
     obra.tipologias.reduce((acc, t) => acc + totalTipologia(t), 0),
   )
-  const descuentoMonto = redondearMoneda(totalBruto * (obra.descuentoPct || 0))
-  const totalConDescuento = redondearMoneda(totalBruto - descuentoMonto)
+  const descuentoPct = obra.descuentoPct || 0
+  const descuentoBase = obra.descuentoBase ?? 'final'
+  const incluyeIva = obra.incluyeIva ?? false
+
   const totalAbonado = totalAbonadoDePagos(pagos)
-  const saldoPendiente = redondearMoneda(
-    Math.max(0, totalConDescuento - totalAbonado),
+
+  if (!incluyeIva || !ivaConfig) {
+    // Camino histórico: sin discriminar IVA, todo sobre totalBruto.
+    const descuentoMonto = redondearMoneda(totalBruto * descuentoPct)
+    const totalConDescuento = redondearMoneda(totalBruto - descuentoMonto)
+    const saldoPendiente = redondearMoneda(Math.max(0, totalConDescuento - totalAbonado))
+    return {
+      totalBruto,
+      descuentoPct,
+      descuentoBase,
+      descuentoMonto,
+      totalConDescuento,
+      incluyeIva: false,
+      ivaPct: obra.ivaPct ?? 0,
+      desgloseItems: [],
+      totalAjustadoIva: 0,
+      totalAjustadoConDescuento: 0,
+      totalBaseConDescuento: 0,
+      ivaMonto: 0,
+      totalConIva: totalConDescuento,
+      totalAbonado,
+      saldoPendiente,
+    }
+  }
+
+  // ── Discriminando IVA ──
+  const ivaBasePct = ivaConfig.ivaBasePct
+  const desgloseItems = obra.tipologias.map((t) =>
+    desglosarIvaItem(t, ivaBasePct, ivaConfig.ivaPorLinea),
+  )
+  // Suma de los precios ya "completados" al IVA base (cada ítem
+  // incrementado por su propia diferencia de IVA).
+  const totalAjustadoIva = redondearMoneda(
+    desgloseItems.reduce((acc, d) => acc + d.totalAjustado, 0),
   )
 
-  // IVA: puramente informativo para el presupuesto (no afecta saldo/pagos,
-  // que siguen calculándose sobre totalConDescuento como siempre).
-  const incluyeIva = obra.incluyeIva ?? false
-  const ivaPct = obra.ivaPct ?? 0
-  const ivaMonto = incluyeIva ? redondearMoneda(totalConDescuento * ivaPct) : 0
-  const totalConIva = redondearMoneda(totalConDescuento + ivaMonto)
+  // El % de descuento da el mismo total final sin importar si se
+  // "piensa" sobre precio neto o sobre precio final con IVA (descontar
+  // X% de un lado o del otro es matemáticamente equivalente, el IVA se
+  // reduce proporcionalmente). `descuentoBase` solo cambia qué monto
+  // de descuento se muestra en el desglose del presupuesto.
+  const totalAjustadoConDescuento = redondearMoneda(totalAjustadoIva * (1 - descuentoPct))
+  const descuentoMonto =
+    descuentoBase === 'neto'
+      ? redondearMoneda(totalAjustadoIva - totalAjustadoConDescuento)
+      : redondearMoneda(totalBruto - totalBruto * (1 - descuentoPct))
+
+  const totalConDescuento = redondearMoneda(totalBruto * (1 - descuentoPct))
+  // El total ajustado ya "contiene" el IVA base: se descompone para
+  // mostrar precio base (neto) + IVA por separado en el resumen final.
+  const totalBaseConDescuento = redondearMoneda(totalAjustadoConDescuento / (1 + ivaBasePct))
+  const ivaMonto = redondearMoneda(totalAjustadoConDescuento - totalBaseConDescuento)
+  const totalConIva = totalAjustadoConDescuento
+  const saldoPendiente = redondearMoneda(Math.max(0, totalConIva - totalAbonado))
 
   return {
     totalBruto,
-    descuentoPct: obra.descuentoPct || 0,
+    descuentoPct,
+    descuentoBase,
     descuentoMonto,
     totalConDescuento,
-    incluyeIva,
-    ivaPct,
+    incluyeIva: true,
+    ivaPct: ivaBasePct,
+    desgloseItems,
+    totalAjustadoIva,
+    totalAjustadoConDescuento,
+    totalBaseConDescuento,
     ivaMonto,
     totalConIva,
     totalAbonado,

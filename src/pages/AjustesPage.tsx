@@ -52,7 +52,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAjustes, useActualizarAjustes, useActualizarUsername, AJUSTES_DEFAULT } from '@/hooks/queries'
-import { EMPRESA_DEFAULT, SISTEMA_DEFAULT } from '@/lib/constants'
+import { EMPRESA_DEFAULT, SISTEMA_DEFAULT, LINEAS } from '@/lib/constants'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
@@ -433,22 +433,64 @@ export function AjustesPage({ onVolver }: Props) {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="reg-iva">IVA para presupuestos (%)</Label>
+              <Label htmlFor="reg-iva-base">IVA base / tope (%)</Label>
               <NumericInput
-                id="reg-iva"
+                id="reg-iva-base"
                 allowDecimals
                 min={0}
                 max={100}
-                value={Math.round(sistemaLocal.ivaPct * 1000) / 10}
+                value={Math.round((sistemaLocal.ivaBasePct ?? SISTEMA_DEFAULT.ivaBasePct) * 1000) / 10}
                 onChange={(v) =>
-                  setSistemaLocal((s) => ({ ...s, ivaPct: v / 100 }))
+                  setSistemaLocal((s) => ({ ...s, ivaBasePct: v / 100 }))
                 }
-                placeholder="10,5"
+                placeholder="21"
                 className="h-11"
               />
               <p className="text-[11px] text-muted-foreground">
-                Alícuota que se ofrece al activar "Incluir IVA" en un presupuesto.
+                Alícuota "tope" a la que debe llegar cualquier ítem al discriminar
+                IVA en un presupuesto o venta (ej. 21%).
               </p>
+            </div>
+            <div className="grid gap-2">
+              <Label>IVA incluido en el precio, por línea (%)</Label>
+              <p className="text-[11px] text-muted-foreground -mt-1">
+                Alícuota que YA viene incluida en el precio unitario que el
+                vendedor carga para cada línea de abertura. Al discriminar IVA,
+                el sistema usa esto para descomponer el precio de cada ítem a
+                su valor base (neto) antes de aplicar el IVA base de arriba.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {LINEAS.map((linea) => (
+                  <div key={linea} className="grid gap-1.5">
+                    <Label htmlFor={`reg-iva-linea-${linea}`} className="text-xs text-muted-foreground">
+                      {linea}
+                    </Label>
+                    <NumericInput
+                      id={`reg-iva-linea-${linea}`}
+                      allowDecimals
+                      min={0}
+                      max={100}
+                      value={
+                        Math.round(
+                          (sistemaLocal.ivaPorLinea?.[linea] ??
+                            SISTEMA_DEFAULT.ivaPorLinea[linea]) * 1000,
+                        ) / 10
+                      }
+                      onChange={(v) =>
+                        setSistemaLocal((s) => ({
+                          ...s,
+                          ivaPorLinea: {
+                            ...(s.ivaPorLinea ?? SISTEMA_DEFAULT.ivaPorLinea),
+                            [linea]: v / 100,
+                          },
+                        }))
+                      }
+                      placeholder="10,5"
+                      className="h-11"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
             <Button
               onClick={handleGuardarSistema}

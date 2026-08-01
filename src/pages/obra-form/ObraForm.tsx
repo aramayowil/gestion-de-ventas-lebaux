@@ -83,6 +83,7 @@ export function ObraForm({ clienteId, obraId, onVolver, onIrAInicio, onFinalizad
     esBorrador,
     esPresupuesto,
     totales,
+    ivaInfo,
     tipologiasValidas,
     pagoInicialNum,
     puedeFinalizar,
@@ -184,6 +185,8 @@ export function ObraForm({ clienteId, obraId, onVolver, onIrAInicio, onFinalizad
                   actualizarTipologia={actualizarTipologia}
                   eliminarTipologia={eliminarTipologia}
                   duplicarTipologia={duplicarTipologia}
+                  isDesktop
+                  ivaInfo={ivaInfo}
                 />
                 {/* Botón también al final de la lista: en obras largas evita
                     tener que volver a subir hasta el header para agregar
@@ -232,6 +235,7 @@ export function ObraForm({ clienteId, obraId, onVolver, onIrAInicio, onFinalizad
                   actualizarTipologia={actualizarTipologia}
                   eliminarTipologia={eliminarTipologia}
                   duplicarTipologia={duplicarTipologia}
+                  ivaInfo={ivaInfo}
                 />
                 <Button
                   type="button"
