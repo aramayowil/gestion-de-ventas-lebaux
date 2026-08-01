@@ -55,14 +55,13 @@ interface Props {
   clienteId: string
   obraId?: string
   onVolver: () => void
-  onIrAInicio?: () => void
   /** Navegación "punto sin retorno" al terminar un presupuesto/venta. */
   onFinalizado: () => void
   /** Tipo elegido en TipoObraModal (solo aplica a obras nuevas). */
   tipoInicial?: TipoObra
 }
 
-export function ObraForm({ clienteId, obraId, onVolver, onIrAInicio, onFinalizado, tipoInicial }: Props) {
+export function ObraForm({ clienteId, obraId, onVolver, onFinalizado, tipoInicial }: Props) {
   const isDesktop = useIsDesktop()
   const {
     cargando,
@@ -156,7 +155,6 @@ export function ObraForm({ clienteId, obraId, onVolver, onIrAInicio, onFinalizad
       title={headerTitle}
       subtitle={headerSubtitle}
       onBack={onVolver}
-      onIrAInicio={onIrAInicio}
       maxWidth="max-w-4xl"
       headerActions={<EstadoPresupuestoBadge estado={obra.estadoPresupuesto} size="sm" />}
       mainClassName="flex-1 min-h-0 overflow-y-auto max-w-4xl w-full mx-auto px-4 py-6 space-y-5 pb-28"

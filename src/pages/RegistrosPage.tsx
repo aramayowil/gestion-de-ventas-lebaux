@@ -27,13 +27,12 @@ import type { EstadoPresupuesto } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  onVolver: () => void
   onVerCliente: (id: string) => void
 }
 
 type Tab = 'presupuestos' | 'pagos'
 
-export function RegistrosPage({ onVolver, onVerCliente }: Props) {
+export function RegistrosPage({ onVerCliente }: Props) {
   // TanStack Query
   const { data: clientes = [], isLoading: cargandoClientes } = useClientes()
   const clienteIds = React.useMemo(() => clientes.map((c) => c.id), [clientes])
@@ -126,9 +125,6 @@ export function RegistrosPage({ onVolver, onVerCliente }: Props) {
 
   return (
     <AppLayout
-      title="Registros"
-      subtitle="Historial de presupuestos y pagos"
-      onBack={onVolver}
       mainClassName="flex-1 min-h-0 overflow-y-auto max-w-5xl w-full mx-auto px-4 py-5 space-y-4 pb-20"
       withBottomBar
     >

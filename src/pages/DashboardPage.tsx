@@ -47,11 +47,10 @@ import {
 import type { EstadoPresupuesto } from '@/lib/types'
 
 interface Props {
-  onVolver: () => void
   onVerCliente: (id: string) => void
 }
 
-export function DashboardPage({ onVolver, onVerCliente }: Props) {
+export function DashboardPage({ onVerCliente }: Props) {
   const navigate = useNavigate()
   const { data: todosClientes = [], isLoading: cargandoClientes } = useClientes()
   const currentUser = useAuthStore((s) => s.currentUser)
@@ -167,7 +166,7 @@ export function DashboardPage({ onVolver, onVerCliente }: Props) {
   }, [obras])
 
   return (
-    <AppLayout title="Dashboard" subtitle="Indicadores financieros" onBack={onVolver} withBottomBar>
+    <AppLayout withBottomBar>
         {/* Hero */}
         <section className="space-y-1">
           <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight">

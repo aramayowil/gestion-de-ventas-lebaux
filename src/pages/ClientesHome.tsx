@@ -58,7 +58,6 @@ import { WhatsAppIcon } from '@/components/ui/icons/WhatsAppIcon'
 
 interface Props {
   onVerCliente: (clienteId: string) => void
-  onVolver: () => void
 }
 
 interface ResumenCliente {
@@ -128,7 +127,7 @@ const ORDENES: { id: OrdenTab; label: string }[] = [
   { id: 'reciente', label: 'Más reciente' },
 ]
 
-export function ClientesHome({ onVerCliente, onVolver }: Props) {
+export function ClientesHome({ onVerCliente }: Props) {
   // TanStack Query: datos del servidor
   const { data: clientes = [], isLoading: loadingClientes } = useClientes()
   const clienteIds = React.useMemo(() => clientes.map((c) => c.id), [clientes])
@@ -447,9 +446,6 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
 
   return (
     <AppLayout
-      title="Clientes"
-      subtitle={`${clientes.length} ${clientes.length === 1 ? 'cliente' : 'clientes'}`}
-      onBack={onVolver}
       onNuevoCliente={abrirNuevoCliente}
       mainClassName="flex-1 min-h-0 overflow-y-auto max-w-5xl w-full mx-auto px-4 py-5 space-y-4 pb-20"
       withBottomBar

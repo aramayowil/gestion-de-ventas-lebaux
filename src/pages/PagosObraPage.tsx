@@ -80,7 +80,6 @@ export function PagosObraPage({ obraId, onVolver }: Props) {
       title={`Pagos · ${cliente.nombre}`}
       subtitle={`${obra.tipologias.length} ${obra.tipologias.length === 1 ? 'ítem' : 'ítems'} · ${formatFechaCorta(obra.fecha)}`}
       onBack={onVolver}
-      onIrAInicio={onVolver}
       headerActions={
         <EstadoPresupuestoBadge estado={obra.estadoPresupuesto} size="sm" />
       }

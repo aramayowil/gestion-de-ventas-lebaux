@@ -36,7 +36,6 @@ interface AppHeaderProps {
   title?: string
   subtitle?: string
   onBack?: () => void
-  onIrAInicio?: () => void
   /** Acciones extras (raro). */
   actions?: React.ReactNode
   maxWidth?: string
@@ -46,13 +45,18 @@ export function AppHeader({
   title,
   subtitle,
   onBack,
-  onIrAInicio,
   actions,
   maxWidth = 'max-w-5xl',
 }: AppHeaderProps) {
   const currentUser = useAuthStore((s) => s.currentUser)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+  const etiquetaUsuario =
+    currentUser?.rol === 'admin' ? 'Administrador' : 'Vendedor'
+
+  function irAlInicioDesdeLogo() {
+    navigate('/', { state: { desdeLogo: true } })
+  }
 
   return (
     <header
@@ -78,38 +82,21 @@ export function AppHeader({
           </Button>
         ) : null}
 
-        {onBack ? (
-          // Si onIrAInicio no se pasa (o apunta al mismo lugar que onBack),
-          // no mostramos logo: el botón "atrás" ya cubre esa acción y
-          // agregar el isotipo sería redundante al lado del título.
-          //
-          // Solo se vuelve clickeable cuando el caller necesita un atajo a
-          // un destino realmente distinto de "volver" (ver ObraForm, donde
-          // "atrás" vuelve a la obra pero el logo va al inicio real).
-          onIrAInicio ? (
-            <button
-              type="button"
-              onClick={onIrAInicio}
-              aria-label="Ir al inicio"
-              className="shrink-0 rounded-md cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              <img
-                src="/logo_recortado.png"
-                alt=""
-                className="h-8 w-8 sm:h-9 sm:w-9 object-contain"
-              />
-            </button>
-          ) : null
-        ) : (
-          // En Home (sin botón "volver") usamos logo.png completo porque
-          // hay más espacio horizontal y la marca completa tiene más peso.
+        <button
+          type="button"
+          onClick={irAlInicioDesdeLogo}
+          aria-label="Ir al inicio"
+          className="shrink-0 cursor-pointer rounded-md transition-opacity hover:opacity-80"
+        >
           <img
-            src="/logo.png"
-            alt="Lebaux"
-            className="h-9 sm:h-10 w-auto shrink-0 cursor-pointer"
-            onClick={onIrAInicio}
+            src={onBack ? '/logo_recortado.png' : '/logo.png'}
+            alt=""
+            className={cn(
+              'object-contain',
+              onBack ? 'h-8 w-8 sm:h-9 sm:w-9' : 'h-9 w-auto sm:h-10',
+            )}
           />
-        )}
+        </button>
 
         <div className="min-w-0 flex-1">
           {title && (
@@ -137,7 +124,7 @@ export function AppHeader({
                     className="h-9 rounded-full px-2.5 text-muted-foreground hover:text-foreground"
                   >
                     <span className="truncate max-w-24 sm:max-w-28">
-                      {currentUser.nombre}
+                      {title ? currentUser.nombre : etiquetaUsuario}
                     </span>
                     <ChevronDown className="ml-1.5 size-4 shrink-0" />
                   </Button>

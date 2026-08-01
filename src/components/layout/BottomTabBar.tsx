@@ -8,13 +8,12 @@
  * Clientes, Registros y Ajustes solo se accedían desde Home, así que
  * moverse entre secciones significaba volver a Home cada vez.
  *
- * Esta barra vive fija al pie de las 6 pantallas principales: cada una
+ * Esta barra vive fija al pie de las pantallas principales: cada una
  * la pide directamente a `AppLayout` con la prop `withBottomBar` (ver
  * components/layout/AppLayout.tsx). Permite saltar directo entre
  * secciones sin pasar por Home, como cualquier tab bar mobile-first
- * estándar. Incluye Ajustes: al ser una app cerrada (equipo interno, no
- * público general), conviene que la configuración esté a un toque desde
- * cualquier pantalla en vez de escondida detrás de Home.
+ * estándar. Inicio se abre tocando el logo del encabezado, por lo que no
+ * necesita ocupar uno de los cuatro accesos de esta barra.
  *
  * Diseño: barra fija de borde a borde (no pastilla flotante), igual
  * criterio que AppHeader — layout de 3 franjas apiladas: header (navbar)
@@ -41,15 +40,14 @@
  * `withBottomBar` a su `AppLayout`.
  */
 import { NavLink } from 'react-router-dom'
-import { Home, LayoutDashboard, Users, ScrollText, Factory } from 'lucide-react'
+import { CalendarDays, ChartColumn, History, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TABS = [
-  { to: '/', label: 'Inicio', icon: Home, end: true },
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: false },
+  { to: '/dashboard', label: 'Dashboard', icon: ChartColumn, end: false },
   { to: '/clientes', label: 'Clientes', icon: Users, end: false },
-  { to: '/agenda', label: 'Agenda', icon: Factory, end: false },
-  { to: '/registros', label: 'Registros', icon: ScrollText, end: false },
+  { to: '/agenda', label: 'Agenda', icon: CalendarDays, end: false },
+  { to: '/registros', label: 'Registros', icon: History, end: false },
 ] as const
 
 export function BottomTabBar() {

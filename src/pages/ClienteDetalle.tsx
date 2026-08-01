@@ -374,7 +374,6 @@ export function ClienteDetalle({
       title={cliente.nombre}
       subtitle={`${obras.length} ${obras.length === 1 ? 'obra' : 'obras'}`}
       onBack={onVolver}
-      onIrAInicio={onVolver}
     >
       {/* ─── Hero del cliente (con avatar de shadcn, WhatsApp y menú de acciones) ─── */}
       <section className="rounded-2xl border border-border/60 bg-card/60 p-5 shadow-sm backdrop-blur-sm dark:bg-linear-to-b dark:from-card/90 dark:to-card/60">

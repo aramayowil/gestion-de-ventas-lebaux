@@ -51,10 +51,7 @@ import { useObraById } from '@/hooks/queries'
 function HomeRoute() {
   const navigate = useNavigate()
   return (
-    <HomePage
-      onIr={(destino) => navigate(`/${destino}`)}
-      onVerCliente={(id) => navigate(`/clientes/${id}`)}
-    />
+    <HomePage onVerCliente={(id) => navigate(`/clientes/${id}`)} />
   )
 }
 
@@ -62,7 +59,6 @@ function DashboardRoute() {
   const navigate = useNavigate()
   return (
     <DashboardPage
-      onVolver={() => navigate('/')}
       onVerCliente={(id) => navigate(`/clientes/${id}`)}
     />
   )
@@ -73,7 +69,6 @@ function ClientesRoute() {
   return (
     <ClientesHome
       onVerCliente={(id) => navigate(`/clientes/${id}`)}
-      onVolver={() => navigate('/')}
     />
   )
 }
@@ -82,7 +77,6 @@ function RegistrosRoute() {
   const navigate = useNavigate()
   return (
     <RegistrosPage
-      onVolver={() => navigate('/')}
       onVerCliente={(id) => navigate(`/clientes/${id}`)}
     />
   )
@@ -97,7 +91,6 @@ function AgendaRoute() {
   const navigate = useNavigate()
   return (
     <AgendaFabricaPage
-      onVolver={() => navigate('/')}
       onVerCliente={(id) => navigate(`/clientes/${id}`)}
     />
   )
@@ -147,7 +140,6 @@ function ObraFormRoute() {
       obraId={obraId}
       tipoInicial={tipoInicial}
       onVolver={() => navigate(`/clientes/${clienteId}`)}
-      onIrAInicio={() => navigate('/')}
       onFinalizado={() => navigate(`/clientes/${clienteId}`, { replace: true })}
     />
   )

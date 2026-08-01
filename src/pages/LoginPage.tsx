@@ -4,7 +4,7 @@
  * Pide email + password. Supabase Auth maneja la autenticación.
  */
 import * as React from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,6 @@ import { Spinner } from '@/hooks/use-async-data'
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const location = useLocation()
   const login = useAuthStore((s) => s.login)
 
   const [email, setEmail] = React.useState('')
@@ -22,8 +21,6 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = React.useState(false)
   const [error, setError] = React.useState('')
   const [cargando, setCargando] = React.useState(false)
-
-  const from = (location.state as { from?: string })?.from ?? '/'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -38,7 +35,7 @@ export function LoginPage() {
       return
     }
 
-    navigate(from, { replace: true })
+    navigate('/', { replace: true })
   }
 
   return (

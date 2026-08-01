@@ -63,13 +63,12 @@ import { nuevoTurno } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  onVolver: () => void
   onVerCliente: (clienteId: string) => void
 }
 
 type Vista = 'calendario' | 'lista'
 
-export function AgendaFabricaPage({ onVolver, onVerCliente }: Props) {
+export function AgendaFabricaPage({ onVerCliente }: Props) {
   // TanStack Query
   const { data: remitos = [], isLoading: cargandoRemitos } = useRemitos()
   const { data: turnos = [], isLoading: cargandoTurnos } = useTurnos()
@@ -236,9 +235,6 @@ export function AgendaFabricaPage({ onVolver, onVerCliente }: Props) {
   /* ─── Render ─── */
   return (
     <AppLayout
-      title="Agenda de fábrica"
-      subtitle={`${turnosOrdenados.length} turno${turnosOrdenados.length === 1 ? '' : 's'} activo${turnosOrdenados.length === 1 ? '' : 's'} · ${remitosSinTurno.length} sin agendar`}
-      onBack={onVolver}
       maxWidth="max-w-6xl"
       withBottomBar
     >

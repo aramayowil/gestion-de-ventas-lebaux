@@ -44,7 +44,6 @@ interface AppLayoutProps {
   title?: string
   subtitle?: string
   onBack?: () => void
-  onIrAInicio?: () => void
   /** Click en el FAB "Nuevo cliente". Si no se provee, no se muestra. */
   onNuevoCliente?: () => void
   /** Acciones extras en el header (raro). */
@@ -64,7 +63,6 @@ export function AppLayout({
   title,
   subtitle,
   onBack,
-  onIrAInicio,
   onNuevoCliente,
   headerActions,
   maxWidth = 'max-w-5xl',
@@ -79,7 +77,6 @@ export function AppLayout({
           title={title}
           subtitle={subtitle}
           onBack={onBack}
-          onIrAInicio={onIrAInicio}
           actions={headerActions}
           maxWidth={maxWidth}
         />
