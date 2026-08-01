@@ -40,7 +40,6 @@ import {
   Trash2,
   PackageOpen,
   Calendar,
-  MessageCircle,
   FileText,
   Wallet,
   MoreVertical,
@@ -115,6 +114,7 @@ import { cn } from '@/lib/utils'
 import { ClienteFormModal } from '@/components/lebaux/clientes/ClienteFormModal'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ClientAvatar } from '@/components/shared/ClientAvatar'
+import { WhatsAppIcon } from '@/components/ui/icons/WhatsAppIcon'
 import { EstadoPresupuestoBadge } from '@/components/shared/EstadoPresupuestoBadge'
 import { PresupuestoModal } from '@/components/lebaux/clientes/PresupuestoModal'
 import { TipoObraModal } from '@/components/lebaux/obras/TipoObraModal'
@@ -148,12 +148,15 @@ export function ClienteDetalle({
   const actualizarClienteMutation = useUpdateCliente()
   const eliminarClienteMutation = useDeleteCliente()
 
-  const { data: obrasData = [], isLoading: cargandoObras } = useObras([clienteId])
+  const { data: obrasData = [], isLoading: cargandoObras } = useObras([
+    clienteId,
+  ])
   const eliminarObraMutation = useDeleteObra()
   const obraIds = React.useMemo(() => obrasData.map((o) => o.id), [obrasData])
   const { data: todosPagos = [] } = usePagos(obraIds)
 
-  const ajustesSistema = useAjustes(null).data?.sistema ?? AJUSTES_DEFAULT.sistema
+  const ajustesSistema =
+    useAjustes(null).data?.sistema ?? AJUSTES_DEFAULT.sistema
   const prefijoWhatsApp = ajustesSistema.prefijoWhatsApp
   const diasAutoRechazo = ajustesSistema.diasAutoRechazo
 
@@ -168,9 +171,13 @@ export function ClienteDetalle({
   const [filtro, setFiltro] = React.useState<FiltroObras>('todos')
   const [modalEdit, setModalEdit] = React.useState(false)
   const [modalTipoObra, setModalTipoObra] = React.useState(false)
-  const [obraPresupuesto, setObraPresupuesto] = React.useState<Obra | null>(null)
+  const [obraPresupuesto, setObraPresupuesto] = React.useState<Obra | null>(
+    null,
+  )
   const [obraEliminar, setObraEliminar] = React.useState<Obra | null>(null)
-  const [obraCambiarEstado, setObraCambiarEstado] = React.useState<Obra | null>(null)
+  const [obraCambiarEstado, setObraCambiarEstado] = React.useState<Obra | null>(
+    null,
+  )
   const [obraRemito, setObraRemito] = React.useState<Obra | null>(null)
 
   // Remitos (para saber si una obra ya tiene remito en el menú ⋮)
@@ -179,14 +186,18 @@ export function ClienteDetalle({
   // Auth + compartir clientes
   const currentUser = useAuthStore((s) => s.currentUser)
   const { data: allUsers = [] } = useUsers()
-  const vendedores = React.useMemo(() => allUsers.filter((u: User) => u.rol === 'vendedor'), [allUsers])
+  const vendedores = React.useMemo(
+    () => allUsers.filter((u: User) => u.rol === 'vendedor'),
+    [allUsers],
+  )
   const [modalCompartir, setModalCompartir] = React.useState(false)
   const [modalReasignar, setModalReasignar] = React.useState(false)
 
   const obras = React.useMemo(
     () =>
       [...obrasData].sort(
-        (a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime(),
+        (a, b) =>
+          new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime(),
       ),
     [obrasData],
   )
@@ -228,9 +239,10 @@ export function ClienteDetalle({
   const resumenObras = obras.map((o) => {
     const pagosObra = todosPagos.filter((p) => p.obraId === o.id)
     const totales = calcularTotalesObra(o, pagosObra)
-    const progreso = totales.totalConIva > 0
-      ? Math.min(1, totales.totalAbonado / totales.totalConIva)
-      : 0
+    const progreso =
+      totales.totalConIva > 0
+        ? Math.min(1, totales.totalAbonado / totales.totalConIva)
+        : 0
     const diasVenc = diasHastaVencimiento(o, diasAutoRechazo)
     return { obra: o, totales, progreso, diasVenc }
   })
@@ -255,8 +267,11 @@ export function ClienteDetalle({
       case 'ventas':
         return esVenta(r.obra)
       case 'presupuestos':
-        return r.obra.tipo === 'presupuesto' &&
-          (r.obra.estadoPresupuesto === 'pendiente' || r.obra.estadoPresupuesto === 'rechazado')
+        return (
+          r.obra.tipo === 'presupuesto' &&
+          (r.obra.estadoPresupuesto === 'pendiente' ||
+            r.obra.estadoPresupuesto === 'rechazado')
+        )
       case 'deudas':
         return esVenta(r.obra) && r.totales.saldoPendiente > 0
       case 'borradores':
@@ -272,10 +287,15 @@ export function ClienteDetalle({
     presupuestos: resumenObras.filter(
       (r) =>
         r.obra.tipo === 'presupuesto' &&
-        (r.obra.estadoPresupuesto === 'pendiente' || r.obra.estadoPresupuesto === 'rechazado'),
+        (r.obra.estadoPresupuesto === 'pendiente' ||
+          r.obra.estadoPresupuesto === 'rechazado'),
     ).length,
-    deudas: resumenObras.filter((r) => esVenta(r.obra) && r.totales.saldoPendiente > 0).length,
-    borradores: resumenObras.filter((r) => r.obra.estadoPresupuesto === 'borrador').length,
+    deudas: resumenObras.filter(
+      (r) => esVenta(r.obra) && r.totales.saldoPendiente > 0,
+    ).length,
+    borradores: resumenObras.filter(
+      (r) => r.obra.estadoPresupuesto === 'borrador',
+    ).length,
     todos: resumenObras.length,
   }
 
@@ -287,7 +307,9 @@ export function ClienteDetalle({
       await eliminarClienteMutation.mutateAsync(cliente.id)
       onVolver()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al eliminar el cliente.')
+      toast.error(
+        e instanceof Error ? e.message : 'Error al eliminar el cliente.',
+      )
     }
   }
 
@@ -308,16 +330,23 @@ export function ClienteDetalle({
     try {
       await aceptarPresupuestoMutation.mutateAsync(obra)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al aceptar el presupuesto.')
+      toast.error(
+        e instanceof Error ? e.message : 'Error al aceptar el presupuesto.',
+      )
     } finally {
       setObraCambiarEstado(null)
     }
   }
   async function handleRechazarPresupuesto(obra: Obra) {
     try {
-      await rechazarPresupuestoMutation.mutateAsync(obra, 'Rechazado por el usuario')
+      await rechazarPresupuestoMutation.mutateAsync(
+        obra,
+        'Rechazado por el usuario',
+      )
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al rechazar el presupuesto.')
+      toast.error(
+        e instanceof Error ? e.message : 'Error al rechazar el presupuesto.',
+      )
     } finally {
       setObraCambiarEstado(null)
     }
@@ -330,35 +359,40 @@ export function ClienteDetalle({
       onBack={onVolver}
       onIrAInicio={onVolver}
     >
-        {/* ─── Hero del cliente (con botón Editar dentro) ─── */}
-        <section className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-5 dark:bg-gradient-to-b dark:from-card/90 dark:to-card/60">
-          <div className="flex items-start gap-4">
-            <ClientAvatar
-              nombre={cliente.nombre}
-              size="lg"
-              alert={saldoTotal > 0}
-            />
-            <div className="min-w-0 flex-1">
-              <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight truncate">
-                {cliente.nombre}
-              </h2>
-              {cliente.telefonoWhatsApp ? (
-                <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                  <MessageCircle className="size-3.5 shrink-0" aria-hidden="true" />
-                  <span className="truncate money">
-                    {formatWhatsApp(cliente.telefonoWhatsApp, prefijoWhatsApp) || '—'}
-                  </span>
-                </p>
-              ) : (
-                <p className="text-sm text-amber-600 dark:text-amber-400 mt-0.5 flex items-center gap-1.5">
-                  <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
-                  <span className="truncate">Sin número de WhatsApp cargado</span>
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Botón compartir: solo vendedores propietarios pueden compartir */}
-              {currentUser?.rol === 'vendedor' && cliente.vendedorId === currentUser.id && (
+      {/* ─── Hero del cliente (con botón Editar dentro) ─── */}
+      <section className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-5 dark:bg-gradient-to-b dark:from-card/90 dark:to-card/60">
+        <div className="flex items-start gap-4">
+          <ClientAvatar
+            nombre={cliente.nombre}
+            size="lg"
+            alert={saldoTotal > 0}
+          />
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight truncate">
+              {cliente.nombre}
+            </h2>
+            {cliente.telefonoWhatsApp ? (
+              <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                <WhatsAppIcon className="size-3.5 shrink-0" />
+                <span className="truncate money">
+                  {formatWhatsApp(cliente.telefonoWhatsApp, prefijoWhatsApp) ||
+                    '—'}
+                </span>
+              </p>
+            ) : (
+              <p className="text-sm text-amber-600 dark:text-amber-400 mt-0.5 flex items-center gap-1.5">
+                <AlertTriangle
+                  className="size-3.5 shrink-0"
+                  aria-hidden="true"
+                />
+                <span className="truncate">Sin número de WhatsApp cargado</span>
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Botón compartir: solo vendedores propietarios pueden compartir */}
+            {currentUser?.rol === 'vendedor' &&
+              cliente.vendedorId === currentUser.id && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -369,236 +403,266 @@ export function ClienteDetalle({
                   <span className="hidden sm:inline">Compartir</span>
                 </Button>
               )}
-              {/* Botón reasignar: solo el admin puede cambiar el vendedor propietario */}
-              {currentUser?.rol === 'admin' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9"
-                  onClick={() => setModalReasignar(true)}
-                >
-                  <UserCog className="size-4" />
-                  <span className="hidden sm:inline">Reasignar</span>
-                </Button>
-              )}
+            {/* Botón reasignar: solo el admin puede cambiar el vendedor propietario */}
+            {currentUser?.rol === 'admin' && (
               <Button
                 variant="outline"
                 size="sm"
                 className="h-9"
-                onClick={() => setModalEdit(true)}
+                onClick={() => setModalReasignar(true)}
               >
-                <Pencil className="size-4" />
-                <span className="hidden sm:inline">Editar</span>
+                <UserCog className="size-4" />
+                <span className="hidden sm:inline">Reasignar</span>
               </Button>
-            </div>
-          </div>
-
-          {/* Aviso de "compartido con" — visible para admin y para el propietario */}
-          {cliente.compartidoCon.length > 0 && (
-            <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Share2 className="size-3.5 shrink-0" aria-hidden="true" />
-              Compartido con:{' '}
-              <span className="font-medium text-foreground">
-                {cliente.compartidoCon
-                  .map((id) => allUsers.find((u) => u.id === id)?.nombre)
-                  .filter(Boolean)
-                  .join(', ') || `${cliente.compartidoCon.length} vendedor(es)`}
-              </span>
-            </p>
-          )}
-
-          {/* Stats — solo ventas confirmadas, no presupuestos sin aceptar */}
-          <div className="mt-4 pt-4 border-t border-border/60 grid grid-cols-2 gap-3">
-            <Stat label="Cobrado" value={`$${formatMoney(totalAbonado)}`} tone="success" />
-            <Stat label="Saldo pendiente" value={`$${formatMoney(saldoTotal)}`} tone={saldoTotal > 0 ? 'danger' : 'success'} />
-          </div>
-        </section>
-
-        {/* ─── Drafts disponibles para continuar ─── */}
-        {draftsDeCliente.length > 0 && (
-          <section className="rounded-xl border border-primary/30 bg-primary/[0.06] dark:bg-primary/[0.1] ring-1 ring-primary/20 p-4 space-y-2">
-            <p className="text-[11px] uppercase tracking-wider text-primary font-semibold flex items-center gap-1.5">
-              <Clock className="size-3.5" aria-hidden="true" />
-              Borradores en curso
-            </p>
-            {draftsDeCliente.map((d) => (
-              <div
-                key={d.tipo}
-                className="flex items-center justify-between gap-2 rounded-lg bg-card/60 border border-border/40 p-2.5"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">
-                    {d.tipo === 'presupuesto' ? 'Presupuesto' : 'Venta'}{' '}
-                    <span className="text-muted-foreground font-normal">
-                      · {d.obra.tipologias.length} ítem{d.obra.tipologias.length === 1 ? '' : 's'}
-                    </span>
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Última edición: {formatFechaCorta(d.actualizadoEn)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Button
-                    size="sm"
-                    className="h-8"
-                    onClick={() => onContinuarBorrador(d.tipo)}
-                  >
-                    <PlayCircle className="size-3.5" />
-                    <span className="hidden sm:inline">Continuar</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => eliminarBorrador(clienteId, d.tipo)}
-                    aria-label="Descartar borrador"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </section>
-        )}
-
-        {/* ─── Obras ─── */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-              Obras
-            </h3>
-            <Button size="sm" className="h-9" onClick={() => setModalTipoObra(true)}>
-              <Plus className="size-4" />
-              <span className="hidden sm:inline">Nueva obra</span>
-              <span className="sm:hidden">Obra</span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9"
+              onClick={() => setModalEdit(true)}
+            >
+              <Pencil className="size-4" />
+              <span className="hidden sm:inline">Editar</span>
             </Button>
           </div>
-
-          {/* Tabs de filtro — "Todos" siempre al final */}
-          {obras.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              <FiltroTab
-                icon={ShoppingCart}
-                label="Ventas"
-                count={contadorFiltro.ventas}
-                activo={filtro === 'ventas'}
-                onClick={() => setFiltro('ventas')}
-              />
-              <FiltroTab
-                icon={FileText}
-                label="Presupuestos"
-                count={contadorFiltro.presupuestos}
-                activo={filtro === 'presupuestos'}
-                onClick={() => setFiltro('presupuestos')}
-              />
-              <FiltroTab
-                icon={AlertCircle}
-                label="Con deuda"
-                count={contadorFiltro.deudas}
-                activo={filtro === 'deudas'}
-                onClick={() => setFiltro('deudas')}
-              />
-              <FiltroTab
-                icon={Edit3}
-                label="Borradores"
-                count={contadorFiltro.borradores}
-                activo={filtro === 'borradores'}
-                onClick={() => setFiltro('borradores')}
-              />
-              <FiltroTab
-                icon={LayoutGrid}
-                label="Todos"
-                count={contadorFiltro.todos}
-                activo={filtro === 'todos'}
-                onClick={() => setFiltro('todos')}
-              />
-            </div>
-          )}
-
-          {cargandoObras ? (
-            <div className="grid gap-2">
-              <Skeleton className="h-24 w-full rounded-xl" />
-              <Skeleton className="h-24 w-full rounded-xl" />
-            </div>
-          ) : obras.length === 0 ? (
-            <div className="text-center py-12 px-4 border border-dashed border-border/60 rounded-xl">
-              <PackageOpen className="size-8 mx-auto text-muted-foreground mb-2" aria-hidden="true" />
-              <p className="text-sm text-muted-foreground mb-3">
-                Todavía no hay obras cargadas para este cliente.
-              </p>
-              <Button variant="outline" size="sm" className="h-10" onClick={() => setModalTipoObra(true)}>
-                <Plus className="size-4" />
-                Cargar primera obra
-              </Button>
-            </div>
-          ) : resumenFiltrado.length === 0 ? (
-            <div className="text-center py-12 px-4 border border-dashed border-border/60 rounded-xl">
-              <PackageOpen className="size-8 mx-auto text-muted-foreground mb-2" aria-hidden="true" />
-              <p className="text-sm text-muted-foreground">
-                No hay obras en este filtro.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-2">
-              {resumenFiltrado.map(({ obra, totales, progreso, diasVenc }) => (
-                <ObraCard
-                  key={obra.id}
-                  obra={obra}
-                  totales={totales}
-                  progreso={progreso}
-                  diasVenc={diasVenc}
-                  tieneRemito={remitos.some((r) => r.obraId === obra.id)}
-                  onVerPresupuesto={() => setObraPresupuesto(obra)}
-                  onVerPagos={() => onVerPagosObra(obra.id)}
-                  onEditarObra={() => onEditarObra(obra.id)}
-                  onEliminarObra={() => setObraEliminar(obra)}
-                  onCambiarEstado={() => setObraCambiarEstado(obra)}
-                  onGenerarRemito={() => setObraRemito(obra)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ─── Eliminar cliente ─── */}
-        <div className="pt-2">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10">
-                <Trash2 className="size-4" />
-                {obras.length > 0 ? 'Eliminar cliente y todas sus obras' : 'Eliminar cliente'}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  ¿Eliminar a {cliente.nombre}?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {obras.length > 0 ? (
-                    <>
-                      Se borrarán también las{' '}
-                      <strong>{obras.length} obras</strong> y todos sus pagos
-                      registrados. Esta acción no se puede deshacer.
-                    </>
-                  ) : (
-                    'Esta acción no se puede deshacer.'
-                  )}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleEliminarCliente}
-                  disabled={eliminarClienteMutation.isPending}
-                  className="bg-destructive text-white hover:bg-destructive/90"
-                >
-                  {eliminarClienteMutation.isPending ? 'Eliminando...' : 'Sí, eliminar todo'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
+
+        {/* Aviso de "compartido con" — visible para admin y para el propietario */}
+        {cliente.compartidoCon.length > 0 && (
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Share2 className="size-3.5 shrink-0" aria-hidden="true" />
+            Compartido con:{' '}
+            <span className="font-medium text-foreground">
+              {cliente.compartidoCon
+                .map((id) => allUsers.find((u) => u.id === id)?.nombre)
+                .filter(Boolean)
+                .join(', ') || `${cliente.compartidoCon.length} vendedor(es)`}
+            </span>
+          </p>
+        )}
+
+        {/* Stats — solo ventas confirmadas, no presupuestos sin aceptar */}
+        <div className="mt-4 pt-4 border-t border-border/60 grid grid-cols-2 gap-3">
+          <Stat
+            label="Cobrado"
+            value={`$${formatMoney(totalAbonado)}`}
+            tone="success"
+          />
+          <Stat
+            label="Saldo pendiente"
+            value={`$${formatMoney(saldoTotal)}`}
+            tone={saldoTotal > 0 ? 'danger' : 'success'}
+          />
+        </div>
+      </section>
+
+      {/* ─── Drafts disponibles para continuar ─── */}
+      {draftsDeCliente.length > 0 && (
+        <section className="rounded-xl border border-primary/30 bg-primary/[0.06] dark:bg-primary/[0.1] ring-1 ring-primary/20 p-4 space-y-2">
+          <p className="text-[11px] uppercase tracking-wider text-primary font-semibold flex items-center gap-1.5">
+            <Clock className="size-3.5" aria-hidden="true" />
+            Borradores en curso
+          </p>
+          {draftsDeCliente.map((d) => (
+            <div
+              key={d.tipo}
+              className="flex items-center justify-between gap-2 rounded-lg bg-card/60 border border-border/40 p-2.5"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">
+                  {d.tipo === 'presupuesto' ? 'Presupuesto' : 'Venta'}{' '}
+                  <span className="text-muted-foreground font-normal">
+                    · {d.obra.tipologias.length} ítem
+                    {d.obra.tipologias.length === 1 ? '' : 's'}
+                  </span>
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Última edición: {formatFechaCorta(d.actualizadoEn)}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  size="sm"
+                  className="h-8"
+                  onClick={() => onContinuarBorrador(d.tipo)}
+                >
+                  <PlayCircle className="size-3.5" />
+                  <span className="hidden sm:inline">Continuar</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => eliminarBorrador(clienteId, d.tipo)}
+                  aria-label="Descartar borrador"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* ─── Obras ─── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+            Obras
+          </h3>
+          <Button
+            size="sm"
+            className="h-9"
+            onClick={() => setModalTipoObra(true)}
+          >
+            <Plus className="size-4" />
+            <span className="hidden sm:inline">Nueva obra</span>
+            <span className="sm:hidden">Obra</span>
+          </Button>
+        </div>
+
+        {/* Tabs de filtro — "Todos" siempre al final */}
+        {obras.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            <FiltroTab
+              icon={ShoppingCart}
+              label="Ventas"
+              count={contadorFiltro.ventas}
+              activo={filtro === 'ventas'}
+              onClick={() => setFiltro('ventas')}
+            />
+            <FiltroTab
+              icon={FileText}
+              label="Presupuestos"
+              count={contadorFiltro.presupuestos}
+              activo={filtro === 'presupuestos'}
+              onClick={() => setFiltro('presupuestos')}
+            />
+            <FiltroTab
+              icon={AlertCircle}
+              label="Con deuda"
+              count={contadorFiltro.deudas}
+              activo={filtro === 'deudas'}
+              onClick={() => setFiltro('deudas')}
+            />
+            <FiltroTab
+              icon={Edit3}
+              label="Borradores"
+              count={contadorFiltro.borradores}
+              activo={filtro === 'borradores'}
+              onClick={() => setFiltro('borradores')}
+            />
+            <FiltroTab
+              icon={LayoutGrid}
+              label="Todos"
+              count={contadorFiltro.todos}
+              activo={filtro === 'todos'}
+              onClick={() => setFiltro('todos')}
+            />
+          </div>
+        )}
+
+        {cargandoObras ? (
+          <div className="grid gap-2">
+            <Skeleton className="h-24 w-full rounded-xl" />
+            <Skeleton className="h-24 w-full rounded-xl" />
+          </div>
+        ) : obras.length === 0 ? (
+          <div className="text-center py-12 px-4 border border-dashed border-border/60 rounded-xl">
+            <PackageOpen
+              className="size-8 mx-auto text-muted-foreground mb-2"
+              aria-hidden="true"
+            />
+            <p className="text-sm text-muted-foreground mb-3">
+              Todavía no hay obras cargadas para este cliente.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10"
+              onClick={() => setModalTipoObra(true)}
+            >
+              <Plus className="size-4" />
+              Cargar primera obra
+            </Button>
+          </div>
+        ) : resumenFiltrado.length === 0 ? (
+          <div className="text-center py-12 px-4 border border-dashed border-border/60 rounded-xl">
+            <PackageOpen
+              className="size-8 mx-auto text-muted-foreground mb-2"
+              aria-hidden="true"
+            />
+            <p className="text-sm text-muted-foreground">
+              No hay obras en este filtro.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            {resumenFiltrado.map(({ obra, totales, progreso, diasVenc }) => (
+              <ObraCard
+                key={obra.id}
+                obra={obra}
+                totales={totales}
+                progreso={progreso}
+                diasVenc={diasVenc}
+                tieneRemito={remitos.some((r) => r.obraId === obra.id)}
+                onVerPresupuesto={() => setObraPresupuesto(obra)}
+                onVerPagos={() => onVerPagosObra(obra.id)}
+                onEditarObra={() => onEditarObra(obra.id)}
+                onEliminarObra={() => setObraEliminar(obra)}
+                onCambiarEstado={() => setObraCambiarEstado(obra)}
+                onGenerarRemito={() => setObraRemito(obra)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ─── Eliminar cliente ─── */}
+      <div className="pt-2">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="size-4" />
+              {obras.length > 0
+                ? 'Eliminar cliente y todas sus obras'
+                : 'Eliminar cliente'}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar a {cliente.nombre}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {obras.length > 0 ? (
+                  <>
+                    Se borrarán también las{' '}
+                    <strong>{obras.length} obras</strong> y todos sus pagos
+                    registrados. Esta acción no se puede deshacer.
+                  </>
+                ) : (
+                  'Esta acción no se puede deshacer.'
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleEliminarCliente}
+                disabled={eliminarClienteMutation.isPending}
+                className="bg-destructive text-white hover:bg-destructive/90"
+              >
+                {eliminarClienteMutation.isPending
+                  ? 'Eliminando...'
+                  : 'Sí, eliminar todo'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
 
       <ClienteFormModal
         open={modalEdit}
@@ -626,8 +690,12 @@ export function ClienteDetalle({
         open={!!obraCambiarEstado}
         obra={obraCambiarEstado}
         onClose={() => setObraCambiarEstado(null)}
-        onAceptar={() => obraCambiarEstado && handleAceptarPresupuesto(obraCambiarEstado)}
-        onRechazar={() => obraCambiarEstado && handleRechazarPresupuesto(obraCambiarEstado)}
+        onAceptar={() =>
+          obraCambiarEstado && handleAceptarPresupuesto(obraCambiarEstado)
+        }
+        onRechazar={() =>
+          obraCambiarEstado && handleRechazarPresupuesto(obraCambiarEstado)
+        }
       />
 
       {/* Modal de remito de fábrica (crear/ver/editar) */}
@@ -645,11 +713,16 @@ export function ClienteDetalle({
         compartidoCon={cliente.compartidoCon}
         onGuardar={async (ids) => {
           try {
-            await actualizarClienteMutation.mutateAsync({ ...cliente, compartidoCon: ids })
+            await actualizarClienteMutation.mutateAsync({
+              ...cliente,
+              compartidoCon: ids,
+            })
             toast.success('Cliente compartido.')
             setModalCompartir(false)
           } catch (e) {
-            toast.error(e instanceof Error ? e.message : 'Error al compartir el cliente.')
+            toast.error(
+              e instanceof Error ? e.message : 'Error al compartir el cliente.',
+            )
           }
         }}
         onClose={() => setModalCompartir(false)}
@@ -673,7 +746,9 @@ export function ClienteDetalle({
             toast.success('Cliente reasignado.')
             setModalReasignar(false)
           } catch (e) {
-            toast.error(e instanceof Error ? e.message : 'Error al reasignar el cliente.')
+            toast.error(
+              e instanceof Error ? e.message : 'Error al reasignar el cliente.',
+            )
           }
         }}
         onClose={() => setModalReasignar(false)}
@@ -688,8 +763,8 @@ export function ClienteDetalle({
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar esta obra?</AlertDialogTitle>
             <AlertDialogDescription>
-              Se borrarán también todos los pagos, remitos y turnos de
-              fábrica asociados a esta obra. Esta acción no se puede deshacer.
+              Se borrarán también todos los pagos, remitos y turnos de fábrica
+              asociados a esta obra. Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -699,7 +774,9 @@ export function ClienteDetalle({
               disabled={eliminarObraMutation.isPending}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              {eliminarObraMutation.isPending ? 'Eliminando...' : 'Sí, eliminar'}
+              {eliminarObraMutation.isPending
+                ? 'Eliminando...'
+                : 'Sí, eliminar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -729,7 +806,8 @@ function CompartirClienteModal({
   onGuardar: (ids: string[]) => void
   onClose: () => void
 }) {
-  const [seleccionados, setSeleccionados] = React.useState<string[]>(compartidoCon)
+  const [seleccionados, setSeleccionados] =
+    React.useState<string[]>(compartidoCon)
 
   React.useEffect(() => {
     if (open) setSeleccionados(compartidoCon)
@@ -783,7 +861,9 @@ function CompartirClienteModal({
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{v.nombre}</p>
-                    <p className="text-xs text-muted-foreground">@{v.username}</p>
+                    <p className="text-xs text-muted-foreground">
+                      @{v.username}
+                    </p>
                   </div>
                 </label>
               )
@@ -792,7 +872,9 @@ function CompartirClienteModal({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
           <Button onClick={() => onGuardar(seleccionados)}>
             <Share2 className="size-4" />
             Guardar
@@ -819,12 +901,19 @@ function ReasignarVendedorModal({
   onClose,
 }: {
   open: boolean
-  cliente: { id: string; nombre: string; vendedorId: string | null; compartidoCon: string[] }
+  cliente: {
+    id: string
+    nombre: string
+    vendedorId: string | null
+    compartidoCon: string[]
+  }
   vendedores: { id: string; nombre: string; username: string }[]
   onGuardar: (nuevoVendedorId: string | null) => void
   onClose: () => void
 }) {
-  const [seleccionado, setSeleccionado] = React.useState<string | null>(cliente.vendedorId)
+  const [seleccionado, setSeleccionado] = React.useState<string | null>(
+    cliente.vendedorId,
+  )
 
   React.useEffect(() => {
     if (open) setSeleccionado(cliente.vendedorId)
@@ -867,7 +956,9 @@ function ReasignarVendedorModal({
             />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">Sin asignar</p>
-              <p className="text-xs text-muted-foreground">Ningún vendedor propietario</p>
+              <p className="text-xs text-muted-foreground">
+                Ningún vendedor propietario
+              </p>
             </div>
           </label>
           {vendedores.map((v) => {
@@ -899,8 +990,13 @@ function ReasignarVendedorModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={() => onGuardar(seleccionado)} disabled={!huboCambio}>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => onGuardar(seleccionado)}
+            disabled={!huboCambio}
+          >
             <UserCog className="size-4" />
             Reasignar
           </Button>
@@ -961,7 +1057,12 @@ function FiltroTab({
     >
       <Icon className="size-3.5" />
       {label}
-      <span className={cn('text-[11px]', activo ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+      <span
+        className={cn(
+          'text-[11px]',
+          activo ? 'text-primary-foreground/80' : 'text-muted-foreground',
+        )}
+      >
         ({count})
       </span>
     </button>
@@ -983,7 +1084,9 @@ function Stat({
       <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
-      <p className={`mt-0.5 money text-base sm:text-lg font-semibold ${valueColor}`}>
+      <p
+        className={`mt-0.5 money text-base sm:text-lg font-semibold ${valueColor}`}
+      >
         {value}
       </p>
     </div>
@@ -1066,7 +1169,9 @@ function ObraCard({
             {puedeTenerRemito && (
               <DropdownMenuItem onClick={onGenerarRemito}>
                 <Factory className="size-3.5" />
-                {tieneRemito ? 'Ver remito de fábrica' : 'Generar remito de fábrica'}
+                {tieneRemito
+                  ? 'Ver remito de fábrica'
+                  : 'Generar remito de fábrica'}
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
@@ -1160,9 +1265,11 @@ function ObraCard({
             Saldo: ${formatMoney(totales.saldoPendiente)}
           </span>
         )}
-        {estado === 'aceptado' && totales.saldoPendiente === 0 && totales.totalConIva > 0 && (
-          <span className="money text-success font-medium">Pagado</span>
-        )}
+        {estado === 'aceptado' &&
+          totales.saldoPendiente === 0 &&
+          totales.totalConIva > 0 && (
+            <span className="money text-success font-medium">Pagado</span>
+          )}
       </div>
 
       {/* ─── Botones de acción según estado ─── */}

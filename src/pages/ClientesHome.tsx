@@ -13,7 +13,6 @@ import { useSearchParams } from 'react-router-dom'
 import {
   Plus,
   Search,
-  MessageCircle,
   ChevronRight,
   PackageOpen,
   UserPlus,
@@ -55,10 +54,11 @@ import {
 import type { Cliente, EstadoPago, Obra, Pago, User } from '@/lib/types'
 import { EstadoBadge } from '@/components/lebaux/clientes/EstadoBadge'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { ClientAvatar } from '@/components/shared/ClientAvatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { RegistrarPagoModal } from '@/components/lebaux/obras/RegistrarPagoModal'
+import { WhatsAppIcon } from '@/components/ui/icons/WhatsAppIcon'
 
 interface Props {
   onVerCliente: (clienteId: string) => void
@@ -92,7 +92,13 @@ interface ResumenCliente {
 }
 
 /** Tabs estilo WhatsApp para filtrar la lista de clientes. */
-type FiltroTab = 'todos' | 'deuda' | 'ventas' | 'presupuestos' | 'saldados' | 'mayoristas'
+type FiltroTab =
+  | 'todos'
+  | 'deuda'
+  | 'ventas'
+  | 'presupuestos'
+  | 'saldados'
+  | 'mayoristas'
 
 const TABS: { id: FiltroTab; label: string; icon: React.ElementType }[] = [
   { id: 'todos', label: 'Todos', icon: Users },
@@ -145,7 +151,8 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
     [allUsers],
   )
 
-  const ajustesSistema = useAjustes(null).data?.sistema ?? AJUSTES_DEFAULT.sistema
+  const ajustesSistema =
+    useAjustes(null).data?.sistema ?? AJUSTES_DEFAULT.sistema
   const prefijoWhatsApp = ajustesSistema.prefijoWhatsApp
   const diasAutoRechazo = ajustesSistema.diasAutoRechazo
 
@@ -168,8 +175,12 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
   // Tab activa, derivada de la URL (?tab=deuda) para poder linkear desde
   // afuera (ej. el KPI "Saldo" del Dashboard) ya filtrado. Compatibilidad:
   // el link viejo del Dashboard usa ?filtro=deuda, lo seguimos soportando.
-  const tabParam = searchParams.get('tab') ?? (searchParams.get('filtro') === 'deuda' ? 'deuda' : null)
-  const tab: FiltroTab = (TABS.some((t) => t.id === tabParam) ? tabParam : 'todos') as FiltroTab
+  const tabParam =
+    searchParams.get('tab') ??
+    (searchParams.get('filtro') === 'deuda' ? 'deuda' : null)
+  const tab: FiltroTab = (
+    TABS.some((t) => t.id === tabParam) ? tabParam : 'todos'
+  ) as FiltroTab
 
   const setTab = (next: FiltroTab) => {
     const params = new URLSearchParams(searchParams)
@@ -185,7 +196,9 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
   // Orden de la lista, también en la URL (?orden=deuda) por si se quiere
   // compartir o volver con el mismo orden aplicado.
   const ordenParam = searchParams.get('orden')
-  const ordenTab: OrdenTab = (ORDENES.some((o) => o.id === ordenParam) ? ordenParam : 'estado') as OrdenTab
+  const ordenTab: OrdenTab = (
+    ORDENES.some((o) => o.id === ordenParam) ? ordenParam : 'estado'
+  ) as OrdenTab
 
   const setOrdenTab = (next: OrdenTab) => {
     const params = new URLSearchParams(searchParams)
@@ -205,7 +218,9 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
     ? FILTRO_VENDEDOR_TODOS
     : vendParam === FILTRO_VENDEDOR_SIN_ASIGNAR
       ? FILTRO_VENDEDOR_SIN_ASIGNAR
-      : vendParam && (vendParam === currentUser?.id || vendedores.some((v) => v.id === vendParam))
+      : vendParam &&
+          (vendParam === currentUser?.id ||
+            vendedores.some((v) => v.id === vendParam))
         ? vendParam
         : FILTRO_VENDEDOR_TODOS
 
@@ -246,7 +261,10 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
         // devuelva un saldoPendiente igual a su total (nunca tuvo pagos).
         if (esVenta(o)) {
           saldoTotal += totales.saldoPendiente
-          const est = estadoDeSaldo(totales.saldoPendiente, totales.totalConDescuento)
+          const est = estadoDeSaldo(
+            totales.saldoPendiente,
+            totales.totalConDescuento,
+          )
           if (ordenEstado[est] < ordenEstado[estadoPeor]) {
             estadoPeor = est
           }
@@ -259,7 +277,10 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
         if (o.tipo === 'presupuesto' && o.estadoPresupuesto === 'pendiente') {
           tienePresupuestoPendiente = true
           const dias = diasHastaVencimiento(o, diasAutoRechazo)
-          if (dias !== undefined && (diasVencimientoMin === undefined || dias < diasVencimientoMin)) {
+          if (
+            dias !== undefined &&
+            (diasVencimientoMin === undefined || dias < diasVencimientoMin)
+          ) {
             diasVencimientoMin = dias
           }
         }
@@ -271,8 +292,10 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
 
       // Swipe "Registrar pago" solo si hay una única obra con saldo —
       // con más de una, no adivinamos cuál cobrar, se va al detalle.
-      const obraParaPago = obrasConSaldo.length === 1 ? obrasConSaldo[0].obra : undefined
-      const pagosObraParaPago = obrasConSaldo.length === 1 ? obrasConSaldo[0].pagosObra : []
+      const obraParaPago =
+        obrasConSaldo.length === 1 ? obrasConSaldo[0].obra : undefined
+      const pagosObraParaPago =
+        obrasConSaldo.length === 1 ? obrasConSaldo[0].pagosObra : []
 
       return {
         cliente,
@@ -311,11 +334,15 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
   /** Un resumen de cliente pasa (o no) el filtro de vendedor propietario.
    * Siempre filtra por PROPIETARIO (vendedorId), nunca por compartidoCon —
    * ver comentario en el tipo FiltroVendedorId más arriba. */
-  const pasaFiltroVendedor = React.useCallback((r: ResumenCliente) => {
-    if (!esAdmin || filtroVendedor === FILTRO_VENDEDOR_TODOS) return true
-    if (filtroVendedor === FILTRO_VENDEDOR_SIN_ASIGNAR) return !r.cliente.vendedorId
-    return r.cliente.vendedorId === filtroVendedor
-  }, [esAdmin, filtroVendedor])
+  const pasaFiltroVendedor = React.useCallback(
+    (r: ResumenCliente) => {
+      if (!esAdmin || filtroVendedor === FILTRO_VENDEDOR_TODOS) return true
+      if (filtroVendedor === FILTRO_VENDEDOR_SIN_ASIGNAR)
+        return !r.cliente.vendedorId
+      return r.cliente.vendedorId === filtroVendedor
+    },
+    [esAdmin, filtroVendedor],
+  )
 
   /* ─── Conteo por tab (para el numerito, como "no leídos" de WhatsApp) ───
    * Respeta el filtro de vendedor activo, para que los números tengan
@@ -362,28 +389,38 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
     if (filtroVendedor === FILTRO_VENDEDOR_TODOS) return 'Todos los vendedores'
     if (filtroVendedor === FILTRO_VENDEDOR_SIN_ASIGNAR) return 'Sin asignar'
     if (filtroVendedor === currentUser?.id) return 'Mis clientes'
-    return vendedores.find((v) => v.id === filtroVendedor)?.nombre ?? 'Todos los vendedores'
+    return (
+      vendedores.find((v) => v.id === filtroVendedor)?.nombre ??
+      'Todos los vendedores'
+    )
   }, [filtroVendedor, currentUser, vendedores])
 
-  const comparador = React.useCallback((a: ResumenCliente, b: ResumenCliente): number => {
-    const ordenEstado: Record<EstadoPago, number> = { debe: 0, pagado: 1, 'sin-datos': 2 }
-    switch (ordenTab) {
-      case 'nombre':
-        return a.cliente.nombre.localeCompare(b.cliente.nombre)
-      case 'deuda':
-        if (b.saldoTotal !== a.saldoTotal) return b.saldoTotal - a.saldoTotal
-        return a.cliente.nombre.localeCompare(b.cliente.nombre)
-      case 'reciente':
-        return b.ultimaActividad - a.ultimaActividad
-      case 'estado':
-      default: {
-        const ea = ordenEstado[a.estadoPeor]
-        const eb = ordenEstado[b.estadoPeor]
-        if (ea !== eb) return ea - eb
-        return a.cliente.nombre.localeCompare(b.cliente.nombre)
+  const comparador = React.useCallback(
+    (a: ResumenCliente, b: ResumenCliente): number => {
+      const ordenEstado: Record<EstadoPago, number> = {
+        debe: 0,
+        pagado: 1,
+        'sin-datos': 2,
       }
-    }
-  }, [ordenTab])
+      switch (ordenTab) {
+        case 'nombre':
+          return a.cliente.nombre.localeCompare(b.cliente.nombre)
+        case 'deuda':
+          if (b.saldoTotal !== a.saldoTotal) return b.saldoTotal - a.saldoTotal
+          return a.cliente.nombre.localeCompare(b.cliente.nombre)
+        case 'reciente':
+          return b.ultimaActividad - a.ultimaActividad
+        case 'estado':
+        default: {
+          const ea = ordenEstado[a.estadoPeor]
+          const eb = ordenEstado[b.estadoPeor]
+          if (ea !== eb) return ea - eb
+          return a.cliente.nombre.localeCompare(b.cliente.nombre)
+        }
+      }
+    },
+    [ordenTab],
+  )
 
   /* ─── Búsqueda por nombre o WhatsApp + tab activa + vendedor + orden ─── */
   const filtrados = React.useMemo(() => {
@@ -407,7 +444,10 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
   )
 
   // Modal de "Registrar pago" disparado desde el swipe de una card.
-  const [pagoRapido, setPagoRapido] = React.useState<{ obra: Obra; pagos: Pago[] } | null>(null)
+  const [pagoRapido, setPagoRapido] = React.useState<{
+    obra: Obra
+    pagos: Pago[]
+  } | null>(null)
 
   return (
     <AppLayout
@@ -418,202 +458,220 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
       mainClassName="flex-1 min-h-0 overflow-y-auto max-w-5xl w-full mx-auto px-4 py-5 space-y-4 pb-20"
       withBottomBar
     >
-        {/* Buscador + tabs: sticky arriba del main scrolleable, estilo WhatsApp */}
-        <div className="sticky -top-5 z-10 -mx-4 px-4 pt-5 -mb-1 bg-background space-y-3">
-          <div className="relative">
-            <Search
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none"
-              aria-hidden="true"
-            />
-            <Input
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar por nombre o WhatsApp…"
-              aria-label="Buscar clientes por nombre o WhatsApp"
-              className="h-11 pl-10 text-base sm:text-sm"
-              autoComplete="off"
-            />
-          </div>
+      {/* Buscador + tabs: sticky arriba del main scrolleable, estilo WhatsApp */}
+      <div className="sticky -top-5 z-10 -mx-4 px-4 pt-5 -mb-1 bg-background space-y-3">
+        <div className="relative">
+          <Search
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none"
+            aria-hidden="true"
+          />
+          <Input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o WhatsApp…"
+            aria-label="Buscar clientes por nombre o WhatsApp"
+            className="h-11 pl-10 text-base sm:text-sm"
+            autoComplete="off"
+          />
+        </div>
 
-          {/* Selector de vendedor: solo para admin. Combina con las tabs
+        {/* Selector de vendedor: solo para admin. Combina con las tabs
               de estado de abajo (ej. "Vendedor1" + "Con deuda"). */}
-          {esAdmin && (
+        {esAdmin && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Filtrar clientes por vendedor"
+                className="flex items-center gap-2 h-9 w-full rounded-lg border border-border/60 bg-card/60 px-3 text-xs sm:text-sm text-foreground hover:bg-elevated transition-colors"
+              >
+                <UserCog
+                  className="size-4 text-muted-foreground shrink-0"
+                  aria-hidden="true"
+                />
+                <span className="flex-1 min-w-0 text-left truncate">
+                  {filtroVendedorLabel}
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuItem
+                onClick={() => setFiltroVendedor(FILTRO_VENDEDOR_TODOS)}
+                className={cn(
+                  filtroVendedor === FILTRO_VENDEDOR_TODOS &&
+                    'text-primary font-medium',
+                )}
+              >
+                Todos
+                <span className="ml-auto text-xs text-muted-foreground money">
+                  {conteosPorVendedor.total}
+                </span>
+              </DropdownMenuItem>
+              {currentUser && (
+                <DropdownMenuItem
+                  onClick={() => setFiltroVendedor(currentUser.id)}
+                  className={cn(
+                    filtroVendedor === currentUser.id &&
+                      'text-primary font-medium',
+                  )}
+                >
+                  Mis clientes
+                  <span className="ml-auto text-xs text-muted-foreground money">
+                    {conteosPorVendedor.porId.get(currentUser.id) ?? 0}
+                  </span>
+                </DropdownMenuItem>
+              )}
+              {vendedores
+                .filter((v) => v.id !== currentUser?.id)
+                .map((v) => (
+                  <DropdownMenuItem
+                    key={v.id}
+                    onClick={() => setFiltroVendedor(v.id)}
+                    className={cn(
+                      filtroVendedor === v.id && 'text-primary font-medium',
+                    )}
+                  >
+                    <span className="truncate">{v.nombre}</span>
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground money">
+                      {conteosPorVendedor.porId.get(v.id) ?? 0}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              {conteosPorVendedor.sinAsignar > 0 && (
+                <DropdownMenuItem
+                  onClick={() => setFiltroVendedor(FILTRO_VENDEDOR_SIN_ASIGNAR)}
+                  className={cn(
+                    filtroVendedor === FILTRO_VENDEDOR_SIN_ASIGNAR &&
+                      'text-primary font-medium',
+                  )}
+                >
+                  Sin asignar
+                  <span className="ml-auto text-xs text-muted-foreground money">
+                    {conteosPorVendedor.sinAsignar}
+                  </span>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        {/* Tabs estilo WhatsApp: Todos / Con deuda / Ventas / Presupuestos / Saldados */}
+        <div
+          className="flex gap-2 overflow-x-auto pb-3 scrollbar-none"
+          role="tablist"
+          aria-label="Filtrar clientes"
+        >
+          {TABS.map(({ id, label, icon: Icon }) => {
+            const activo = tab === id
+            const count = conteos[id]
+            return (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={activo}
+                onClick={() => setTab(id)}
+                className={cn(
+                  'shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-colors whitespace-nowrap',
+                  activo
+                    ? id === 'deuda'
+                      ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                      : 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-card/60 border-border/60 text-muted-foreground hover:bg-elevated hover:text-foreground',
+                )}
+              >
+                <Icon className="size-3.5" aria-hidden="true" />
+                {label}
+                {count > 0 && (
+                  <span
+                    className={cn(
+                      'inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] font-semibold money',
+                      activo ? 'bg-black/15' : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Lista */}
+      <section>
+        <div className="flex items-center justify-between mb-3 gap-2">
+          <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase shrink-0">
+            Clientes
+          </h2>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs text-muted-foreground money shrink-0">
+              {filtrados.length} de {clientes.length}
+            </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  aria-label="Filtrar clientes por vendedor"
-                  className="flex items-center gap-2 h-9 w-full rounded-lg border border-border/60 bg-card/60 px-3 text-xs sm:text-sm text-foreground hover:bg-elevated transition-colors"
+                  aria-label="Ordenar clientes"
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-elevated transition-colors shrink-0"
                 >
-                  <UserCog className="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
-                  <span className="flex-1 min-w-0 text-left truncate">
-                    {filtroVendedorLabel}
+                  <ArrowUpDown className="size-3.5" aria-hidden="true" />
+                  <span className="hidden sm:inline">
+                    {ORDENES.find((o) => o.id === ordenTab)?.label}
                   </span>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuItem
-                  onClick={() => setFiltroVendedor(FILTRO_VENDEDOR_TODOS)}
-                  className={cn(filtroVendedor === FILTRO_VENDEDOR_TODOS && 'text-primary font-medium')}
-                >
-                  Todos
-                  <span className="ml-auto text-xs text-muted-foreground money">
-                    {conteosPorVendedor.total}
-                  </span>
-                </DropdownMenuItem>
-                {currentUser && (
+              <DropdownMenuContent align="end">
+                {ORDENES.map((o) => (
                   <DropdownMenuItem
-                    onClick={() => setFiltroVendedor(currentUser.id)}
-                    className={cn(filtroVendedor === currentUser.id && 'text-primary font-medium')}
+                    key={o.id}
+                    onClick={() => setOrdenTab(o.id)}
+                    className={cn(
+                      ordenTab === o.id && 'text-primary font-medium',
+                    )}
                   >
-                    Mis clientes
-                    <span className="ml-auto text-xs text-muted-foreground money">
-                      {conteosPorVendedor.porId.get(currentUser.id) ?? 0}
-                    </span>
+                    {o.label}
                   </DropdownMenuItem>
-                )}
-                {vendedores
-                  .filter((v) => v.id !== currentUser?.id)
-                  .map((v) => (
-                    <DropdownMenuItem
-                      key={v.id}
-                      onClick={() => setFiltroVendedor(v.id)}
-                      className={cn(filtroVendedor === v.id && 'text-primary font-medium')}
-                    >
-                      <span className="truncate">{v.nombre}</span>
-                      <span className="ml-auto shrink-0 text-xs text-muted-foreground money">
-                        {conteosPorVendedor.porId.get(v.id) ?? 0}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                {conteosPorVendedor.sinAsignar > 0 && (
-                  <DropdownMenuItem
-                    onClick={() => setFiltroVendedor(FILTRO_VENDEDOR_SIN_ASIGNAR)}
-                    className={cn(filtroVendedor === FILTRO_VENDEDOR_SIN_ASIGNAR && 'text-primary font-medium')}
-                  >
-                    Sin asignar
-                    <span className="ml-auto text-xs text-muted-foreground money">
-                      {conteosPorVendedor.sinAsignar}
-                    </span>
-                  </DropdownMenuItem>
-                )}
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-
-          {/* Tabs estilo WhatsApp: Todos / Con deuda / Ventas / Presupuestos / Saldados */}
-          <div
-            className="flex gap-2 overflow-x-auto pb-3 scrollbar-none"
-            role="tablist"
-            aria-label="Filtrar clientes"
-          >
-            {TABS.map(({ id, label, icon: Icon }) => {
-              const activo = tab === id
-              const count = conteos[id]
-              return (
-                <button
-                  key={id}
-                  role="tab"
-                  aria-selected={activo}
-                  onClick={() => setTab(id)}
-                  className={cn(
-                    'shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-colors whitespace-nowrap',
-                    activo
-                      ? id === 'deuda'
-                        ? 'bg-destructive/15 border-destructive/40 text-destructive'
-                        : 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-card/60 border-border/60 text-muted-foreground hover:bg-elevated hover:text-foreground',
-                  )}
-                >
-                  <Icon className="size-3.5" aria-hidden="true" />
-                  {label}
-                  {count > 0 && (
-                    <span
-                      className={cn(
-                        'inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] font-semibold money',
-                        activo ? 'bg-black/15' : 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      {count}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
           </div>
         </div>
 
-        {/* Lista */}
-        <section>
-          <div className="flex items-center justify-between mb-3 gap-2">
-            <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase shrink-0">
-              Clientes
-            </h2>
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs text-muted-foreground money shrink-0">
-                {filtrados.length} de {clientes.length}
-              </span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="Ordenar clientes"
-                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-elevated transition-colors shrink-0"
-                  >
-                    <ArrowUpDown className="size-3.5" aria-hidden="true" />
-                    <span className="hidden sm:inline">
-                      {ORDENES.find((o) => o.id === ordenTab)?.label}
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {ORDENES.map((o) => (
-                    <DropdownMenuItem
-                      key={o.id}
-                      onClick={() => setOrdenTab(o.id)}
-                      className={cn(ordenTab === o.id && 'text-primary font-medium')}
-                    >
-                      {o.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        {loadingClientes ? (
+          <div className="grid gap-2">
+            <ClienteCardSkeleton />
+            <ClienteCardSkeleton />
+            <ClienteCardSkeleton />
           </div>
-
-          {loadingClientes ? (
-            <div className="grid gap-2">
-              <ClienteCardSkeleton />
-              <ClienteCardSkeleton />
-              <ClienteCardSkeleton />
-            </div>
-          ) : clientes.length === 0 ? (
-            <EmptyState onNuevo={abrirNuevoCliente} />
-          ) : filtrados.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-12">
-              {tab !== 'todos' || filtroVendedor !== FILTRO_VENDEDOR_TODOS
-                ? `Ningún cliente en "${TABS.find((t) => t.id === tab)?.label}"${
-                    filtroVendedor !== FILTRO_VENDEDOR_TODOS ? ` (${filtroVendedorLabel})` : ''
-                  } coincide con la búsqueda.`
-                : 'No se encontraron clientes con esa búsqueda.'}
-            </p>
-          ) : (
-            <div className="grid gap-2">
-              {filtrados.map((resumen) => (
-                <ClienteCard
-                  key={resumen.cliente.id}
-                  resumen={resumen}
-                  prefijoWhatsApp={prefijoWhatsApp}
-                  esAdmin={esAdmin}
-                  onVerCliente={onVerCliente}
-                  onRegistrarPago={(obra, pagosObra) =>
-                    setPagoRapido({ obra, pagos: pagosObra })
-                  }
-                />
-              ))}
-            </div>
-          )}
-        </section>
+        ) : clientes.length === 0 ? (
+          <EmptyState onNuevo={abrirNuevoCliente} />
+        ) : filtrados.length === 0 ? (
+          <p className="text-center text-sm text-muted-foreground py-12">
+            {tab !== 'todos' || filtroVendedor !== FILTRO_VENDEDOR_TODOS
+              ? `Ningún cliente en "${TABS.find((t) => t.id === tab)?.label}"${
+                  filtroVendedor !== FILTRO_VENDEDOR_TODOS
+                    ? ` (${filtroVendedorLabel})`
+                    : ''
+                } coincide con la búsqueda.`
+              : 'No se encontraron clientes con esa búsqueda.'}
+          </p>
+        ) : (
+          <div className="grid gap-2">
+            {filtrados.map((resumen) => (
+              <ClienteCard
+                key={resumen.cliente.id}
+                resumen={resumen}
+                prefijoWhatsApp={prefijoWhatsApp}
+                esAdmin={esAdmin}
+                onVerCliente={onVerCliente}
+                onRegistrarPago={(obra, pagosObra) =>
+                  setPagoRapido({ obra, pagos: pagosObra })
+                }
+              />
+            ))}
+          </div>
+        )}
+      </section>
       {modalNuevoCliente}
       {pagoRapido && (
         <RegistrarPagoModal
@@ -692,6 +750,13 @@ function ClienteCard({
   const tieneWhatsApp = normalizarWhatsApp(cliente.telefonoWhatsApp).length > 0
   const accionesDisponibles = (tieneWhatsApp ? 1 : 0) + (obraParaPago ? 1 : 0)
   const maxOffset = SWIPE_ACTION_WIDTH * accionesDisponibles
+  const iniciales =
+    cliente.nombre
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((palabra) => palabra[0]?.toUpperCase() ?? '')
+      .join('') || 'C'
 
   const [offset, setOffset] = React.useState(0)
   const drag = React.useRef<{
@@ -705,7 +770,12 @@ function ClienteCard({
 
   function handlePointerDown(e: React.PointerEvent) {
     if (accionesDisponibles === 0) return
-    drag.current = { startX: e.clientX, startY: e.clientY, startOffset: offset, axis: 'none' }
+    drag.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startOffset: offset,
+      axis: 'none',
+    }
   }
 
   function handlePointerMove(e: React.PointerEvent) {
@@ -759,14 +829,19 @@ function ClienteCard({
               type="button"
               onClick={() => {
                 cerrar()
-                const numero = prefijoWhatsApp + normalizarWhatsApp(cliente.telefonoWhatsApp)
-                window.open(`https://wa.me/${numero}`, '_blank', 'noopener,noreferrer')
+                const numero =
+                  prefijoWhatsApp + normalizarWhatsApp(cliente.telefonoWhatsApp)
+                window.open(
+                  `https://wa.me/${numero}`,
+                  '_blank',
+                  'noopener,noreferrer',
+                )
               }}
               aria-label={`Abrir WhatsApp de ${cliente.nombre}`}
               className="flex flex-col items-center justify-center gap-1 bg-[#25D366] text-white transition-colors hover:brightness-110"
               style={{ width: SWIPE_ACTION_WIDTH }}
             >
-              <MessageCircle className="size-5" aria-hidden="true" />
+              <WhatsAppIcon className="size-5" />
               <span className="text-[10px] font-medium">WhatsApp</span>
             </button>
           )}
@@ -788,38 +863,53 @@ function ClienteCard({
       >
         <div
           className={cn(
-            'flex items-center gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm transition-all',
+            'flex items-center gap-3 p-3 sm:p-4 rounded-xl border border-border/80 bg-card shadow-sm transition-all',
             offset > 0
-              ? 'shadow-none'
-              : 'hover:border-primary/40 hover:bg-card hover:shadow-md dark:bg-card/50 dark:hover:bg-card/80',
+              ? 'shadow-none opacity-100'
+              : 'hover:border-primary/40 hover:bg-card hover:shadow-md',
           )}
         >
-          <ClientAvatar nombre={cliente.nombre} size="md" alert={estadoPeor === 'debe'} />
+          <Avatar className="size-12 border border-border/60 bg-muted/70 text-sm font-semibold text-foreground">
+            <AvatarFallback>{iniciales}</AvatarFallback>
+          </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold truncate font-display">{cliente.nombre}</span>
-              <EstadoBadge estado={estadoPeor} saldoPendiente={saldoTotal} size="sm" />
+              <span className="font-semibold truncate font-display">
+                {cliente.nombre}
+              </span>
+              <EstadoBadge
+                estado={estadoPeor}
+                saldoPendiente={saldoTotal}
+                size="sm"
+              />
               {cliente.isMayorista && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                   <Store className="size-3" aria-hidden="true" />
                   Mayorista
                 </span>
               )}
-              {tienePresupuestoPendiente && diasVencimientoMin !== undefined && (
-                <VencimientoBadge dias={diasVencimientoMin} />
-              )}
+              {tienePresupuestoPendiente &&
+                diasVencimientoMin !== undefined && (
+                  <VencimientoBadge dias={diasVencimientoMin} />
+                )}
             </div>
             <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
               {tieneWhatsApp ? (
                 <span className="inline-flex items-center gap-1 min-w-0">
-                  <MessageCircle className="size-3 shrink-0" aria-hidden="true" />
+                  <WhatsAppIcon className="size-3.5 shrink-0" />
                   <span className="truncate">
-                    {formatWhatsApp(cliente.telefonoWhatsApp, prefijoWhatsApp) || '—'}
+                    {formatWhatsApp(
+                      cliente.telefonoWhatsApp,
+                      prefijoWhatsApp,
+                    ) || '—'}
                   </span>
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 min-w-0 text-amber-600 dark:text-amber-400">
-                  <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+                  <AlertTriangle
+                    className="size-3 shrink-0"
+                    aria-hidden="true"
+                  />
                   <span className="truncate">Sin número</span>
                 </span>
               )}
@@ -843,7 +933,10 @@ function ClienteCard({
               </p>
             )}
           </div>
-          <ChevronRight className="size-4 text-muted-foreground shrink-0" aria-hidden="true" />
+          <ChevronRight
+            className="size-4 text-muted-foreground shrink-0"
+            aria-hidden="true"
+          />
         </div>
       </button>
     </div>
@@ -856,7 +949,11 @@ function ClienteCard({
 function VencimientoBadge({ dias }: { dias: number }) {
   if (dias > 3) return null
   const vencido = dias < 0
-  const label = vencido ? 'Vencido' : dias === 0 ? 'Vence hoy' : `Vence en ${dias}d`
+  const label = vencido
+    ? 'Vencido'
+    : dias === 0
+      ? 'Vence hoy'
+      : `Vence en ${dias}d`
   return (
     <span
       className={cn(
@@ -878,7 +975,9 @@ function EmptyState({ onNuevo }: { onNuevo: () => void }) {
       <div className="mx-auto size-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20 flex items-center justify-center mb-5">
         <UserPlus className="size-9 text-primary" aria-hidden="true" />
       </div>
-      <h3 className="font-display text-xl font-semibold mb-2">Sin clientes todavía</h3>
+      <h3 className="font-display text-xl font-semibold mb-2">
+        Sin clientes todavía
+      </h3>
       <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
         Creá tu primer cliente para empezar a cargar obras, generar presupuestos
         y registrar pagos.
