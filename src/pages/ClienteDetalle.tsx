@@ -13,7 +13,25 @@
  *
  * Cambios de estado (aceptar/rechazar/reabrir) se hacen abriendo el
  * PresupuestoModal desde "Presupuesto" → ahí adentro están los botones.
+ *
+ * Stats del hero (Cobrado / Saldo pendiente): se calculan SOLO sobre
+ * ventas confirmadas (`esVenta()`, o sea `estadoPresupuesto ===
+ * 'aceptado'`). No se muestra "Facturado" acá porque mezclaría plata
+ * real cobrada con presupuestos que todavía no son ventas. Un
+ * presupuesto aceptado se convierte en venta de forma irreversible —
+ * aunque su campo `tipo` en la base siga siendo 'presupuesto', para
+ * estos cálculos y para el tab "Ventas" se lo trata como venta.
+ *
+ * Tabs de filtro sobre el listado de obras: Ventas | Presupuestos |
+ * Deudas | Borradores | Todos (en ese orden, "Todos" al final).
+ *   · Ventas       — estadoPresupuesto === 'aceptado'
+ *   · Presupuestos — tipo === 'presupuesto' Y estado en pendiente/rechazado
+ *                    (los aceptados ya son ventas, no aparecen acá)
+ *   · Deudas       — ventas con saldoPendiente > 0
+ *   · Borradores   — estadoPresupuesto === 'borrador'
+ *   · Todos        — sin filtrar
  */
+
 import * as React from 'react'
 import { toast } from 'sonner'
 import {
@@ -36,6 +54,9 @@ import {
   Share2,
   AlertTriangle,
   UserCog,
+  LayoutGrid,
+  Edit3,
+  AlertCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -87,6 +108,7 @@ import {
   formatFechaCorta,
   formatWhatsApp,
   diasHastaVencimiento,
+  esVenta,
 } from '@/lib/obra-totales'
 import type { Obra, TipoObra, User } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -109,6 +131,9 @@ interface Props {
   /** Continúa el draft de un tipo específico (presupuesto o venta). */
   onContinuarBorrador: (tipo: TipoObra) => void
 }
+
+/** Filtro del listado de obras. 'todos' siempre va al final en la UI. */
+type FiltroObras = 'ventas' | 'presupuestos' | 'deudas' | 'borradores' | 'todos'
 
 export function ClienteDetalle({
   clienteId,
@@ -140,6 +165,7 @@ export function ClienteDetalle({
   const aceptarPresupuestoMutation = useAceptarPresupuesto()
   const rechazarPresupuestoMutation = useRechazarPresupuesto()
 
+  const [filtro, setFiltro] = React.useState<FiltroObras>('todos')
   const [modalEdit, setModalEdit] = React.useState(false)
   const [modalTipoObra, setModalTipoObra] = React.useState(false)
   const [obraPresupuesto, setObraPresupuesto] = React.useState<Obra | null>(null)
@@ -209,15 +235,49 @@ export function ClienteDetalle({
     return { obra: o, totales, progreso, diasVenc }
   })
 
-  const saldoTotal = resumenObras.reduce(
+  // Stats del hero: solo ventas confirmadas (estadoPresupuesto='aceptado').
+  // Los presupuestos sin aceptar todavía no son plata real, no se cuentan.
+  const resumenVentas = resumenObras.filter((r) => esVenta(r.obra))
+  const saldoTotal = resumenVentas.reduce(
     (acc, r) => acc + r.totales.saldoPendiente,
     0,
   )
-  const totalFacturado = resumenObras.reduce(
-    (acc, r) => acc + r.totales.totalConDescuento,
+  const totalAbonado = resumenVentas.reduce(
+    (acc, r) => acc + r.totales.totalAbonado,
     0,
   )
-  const totalAbonado = Math.max(0, totalFacturado - saldoTotal)
+
+  // Listado filtrado por tab. El orden de evaluación importa: una obra
+  // aceptada es venta aunque tipo='presupuesto' (ver comentario de
+  // cabecera del archivo).
+  const resumenFiltrado = resumenObras.filter((r) => {
+    switch (filtro) {
+      case 'ventas':
+        return esVenta(r.obra)
+      case 'presupuestos':
+        return r.obra.tipo === 'presupuesto' &&
+          (r.obra.estadoPresupuesto === 'pendiente' || r.obra.estadoPresupuesto === 'rechazado')
+      case 'deudas':
+        return esVenta(r.obra) && r.totales.saldoPendiente > 0
+      case 'borradores':
+        return r.obra.estadoPresupuesto === 'borrador'
+      case 'todos':
+      default:
+        return true
+    }
+  })
+
+  const contadorFiltro = {
+    ventas: resumenObras.filter((r) => esVenta(r.obra)).length,
+    presupuestos: resumenObras.filter(
+      (r) =>
+        r.obra.tipo === 'presupuesto' &&
+        (r.obra.estadoPresupuesto === 'pendiente' || r.obra.estadoPresupuesto === 'rechazado'),
+    ).length,
+    deudas: resumenObras.filter((r) => esVenta(r.obra) && r.totales.saldoPendiente > 0).length,
+    borradores: resumenObras.filter((r) => r.obra.estadoPresupuesto === 'borrador').length,
+    todos: resumenObras.length,
+  }
 
   async function handleEliminarCliente() {
     if (!cliente) return
@@ -347,11 +407,10 @@ export function ClienteDetalle({
             </p>
           )}
 
-          {/* Stats */}
-          <div className="mt-4 pt-4 border-t border-border/60 grid grid-cols-3 gap-3">
-            <Stat label="Facturado" value={`$${formatMoney(totalFacturado)}`} tone="muted" />
+          {/* Stats — solo ventas confirmadas, no presupuestos sin aceptar */}
+          <div className="mt-4 pt-4 border-t border-border/60 grid grid-cols-2 gap-3">
             <Stat label="Cobrado" value={`$${formatMoney(totalAbonado)}`} tone="success" />
-            <Stat label="Saldo" value={`$${formatMoney(saldoTotal)}`} tone={saldoTotal > 0 ? 'danger' : 'success'} />
+            <Stat label="Saldo pendiente" value={`$${formatMoney(saldoTotal)}`} tone={saldoTotal > 0 ? 'danger' : 'success'} />
           </div>
         </section>
 
@@ -415,6 +474,47 @@ export function ClienteDetalle({
             </Button>
           </div>
 
+          {/* Tabs de filtro — "Todos" siempre al final */}
+          {obras.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              <FiltroTab
+                icon={ShoppingCart}
+                label="Ventas"
+                count={contadorFiltro.ventas}
+                activo={filtro === 'ventas'}
+                onClick={() => setFiltro('ventas')}
+              />
+              <FiltroTab
+                icon={FileText}
+                label="Presupuestos"
+                count={contadorFiltro.presupuestos}
+                activo={filtro === 'presupuestos'}
+                onClick={() => setFiltro('presupuestos')}
+              />
+              <FiltroTab
+                icon={AlertCircle}
+                label="Con deuda"
+                count={contadorFiltro.deudas}
+                activo={filtro === 'deudas'}
+                onClick={() => setFiltro('deudas')}
+              />
+              <FiltroTab
+                icon={Edit3}
+                label="Borradores"
+                count={contadorFiltro.borradores}
+                activo={filtro === 'borradores'}
+                onClick={() => setFiltro('borradores')}
+              />
+              <FiltroTab
+                icon={LayoutGrid}
+                label="Todos"
+                count={contadorFiltro.todos}
+                activo={filtro === 'todos'}
+                onClick={() => setFiltro('todos')}
+              />
+            </div>
+          )}
+
           {cargandoObras ? (
             <div className="grid gap-2">
               <Skeleton className="h-24 w-full rounded-xl" />
@@ -431,9 +531,16 @@ export function ClienteDetalle({
                 Cargar primera obra
               </Button>
             </div>
+          ) : resumenFiltrado.length === 0 ? (
+            <div className="text-center py-12 px-4 border border-dashed border-border/60 rounded-xl">
+              <PackageOpen className="size-8 mx-auto text-muted-foreground mb-2" aria-hidden="true" />
+              <p className="text-sm text-muted-foreground">
+                No hay obras en este filtro.
+              </p>
+            </div>
           ) : (
             <div className="grid gap-2">
-              {resumenObras.map(({ obra, totales, progreso, diasVenc }) => (
+              {resumenFiltrado.map(({ obra, totales, progreso, diasVenc }) => (
                 <ObraCard
                   key={obra.id}
                   obra={obra}
@@ -827,6 +934,40 @@ function mensajeVencimiento(diasVenc: number) {
   return `Vence en ${diasVenc} días`
 }
 
+/** Pill de filtro para el listado de obras (Ventas/Presupuestos/Deudas/Borradores/Todos). */
+function FiltroTab({
+  icon: Icon,
+  label,
+  count,
+  activo,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  count: number
+  activo: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border',
+        activo
+          ? 'bg-primary text-primary-foreground border-primary'
+          : 'bg-card/60 text-muted-foreground border-border/60 hover:bg-elevated hover:text-foreground',
+      )}
+    >
+      <Icon className="size-3.5" />
+      {label}
+      <span className={cn('text-[11px]', activo ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+        ({count})
+      </span>
+    </button>
+  )
+}
+
 function Stat({
   label,
   value,
@@ -878,9 +1019,15 @@ function ObraCard({
   onGenerarRemito,
 }: ObraCardProps) {
   const estado = obra.estadoPresupuesto
-  const esVenta = obra.tipo === 'venta'
-  // Solo se puede cambiar estado (aceptar/rechazar) si no es borrador.
-  const puedeCambiarEstado = estado === 'pendiente' || estado === 'rechazado' || estado === 'aceptado'
+  // Solo para el texto mostrado cuando ya está aceptado: distingue si
+  // nació como venta directa o como presupuesto (no confundir con el
+  // helper `esVenta()` de obra-totales, que usa estadoPresupuesto).
+  const eraVentaDirecta = obra.tipo === 'venta'
+  // Solo se puede cambiar estado (aceptar/rechazar) si el presupuesto
+  // está pendiente o rechazado. Una vez aceptado (= venta), la transición
+  // es irreversible: ya no se puede cambiar el estado por ningún medio,
+  // ni desde el botón de la card ni desde el menú ⋮.
+  const puedeCambiarEstado = estado === 'pendiente' || estado === 'rechazado'
   // Solo se puede generar/ver remito si la obra es una venta aceptada.
   const puedeTenerRemito = estado === 'aceptado'
 
@@ -974,7 +1121,7 @@ function ObraCard({
       {estado === 'aceptado' && (
         <p className="text-[11px] text-success/90 mb-2 inline-flex items-center gap-1.5">
           <CheckCircle2 className="size-3" aria-hidden="true" />
-          {esVenta ? 'Venta confirmada' : 'Presupuesto aceptado'}
+          {eraVentaDirecta ? 'Venta confirmada' : 'Presupuesto aceptado'}
           {obra.aceptadoEn && ` · ${formatFechaCorta(obra.aceptadoEn)}`}
         </p>
       )}

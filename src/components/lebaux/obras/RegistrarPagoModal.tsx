@@ -27,14 +27,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useCreatePago, useSiguienteNumeroRecibo, useClientes } from '@/hooks/queries'
+import {
+  useCreatePago,
+  useSiguienteNumeroRecibo,
+  useClientes,
+  useAjustes,
+  AJUSTES_DEFAULT,
+} from '@/hooks/queries'
 import {
   calcularTotalesObra,
+  calcularMontoConRecargoTarjeta,
   formatMoney,
   redondearMoneda,
 } from '@/lib/obra-totales'
 import { nuevoPago, type Obra, type Pago, type FormaPago } from '@/lib/types'
-import { FORMAS_PAGO } from '@/lib/constants'
+import { FORMAS_PAGO_VENTA } from '@/lib/constants'
 import { ReciboPagoPdfButton } from '@/components/pdf/ReciboPagoPdfButton'
 
 interface Props {
@@ -49,6 +56,8 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
   const crearPagoMutation = useCreatePago()
   const { data: clientes = [] } = useClientes()
   const cliente = clientes.find((c) => c.id === obra.clienteId)
+  const { data: ajustes } = useAjustes(null)
+  const recargoTarjetaPct = ajustes?.sistema.recargoTarjetaPct ?? AJUSTES_DEFAULT.sistema.recargoTarjetaPct
 
   const totalesActuales = React.useMemo(
     () => calcularTotalesObra(obra, pagos),
@@ -56,11 +65,15 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
   )
   const saldo = totalesActuales.saldoPendiente
 
+  // `monto` es el monto BASE que el vendedor quiere cubrir del saldo
+  // (equivalente efectivo/transferencia). Si la forma de pago es
+  // Tarjeta, el monto REAL a cobrarle al cliente se calcula aparte
+  // (ver `montoConRecargo` más abajo) y es ESE el que se registra.
   const [monto, setMonto] = React.useState(0)
   const [fecha, setFecha] = React.useState(
     new Date().toISOString().slice(0, 10),
   )
-  const [formaPago, setFormaPago] = React.useState<FormaPago | ''>('')
+  const [formaPago, setFormaPago] = React.useState<FormaPago>('Efectivo')
   const [nota, setNota] = React.useState('')
   const [pagoConfirmado, setPagoConfirmado] = React.useState<Pago | null>(null)
 
@@ -68,33 +81,42 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
     if (open) {
       setMonto(0)
       setFecha(new Date().toISOString().slice(0, 10))
-      setFormaPago(obra.formaPago ?? '')
+      setFormaPago('Efectivo')
       setNota('')
       setPagoConfirmado(null)
     }
-  }, [open, obra.formaPago])
+  }, [open])
 
-  const montoNum = redondearMoneda(monto || 0)
-  const montoValido = montoNum > 0 && montoNum <= saldo + 0.01
+  const montoBaseNum = redondearMoneda(monto || 0)
+  const esTarjeta = formaPago === 'Tarjeta'
+  // Monto REAL a cobrarle al cliente si paga con tarjeta (con recargo).
+  const montoConRecargo = calcularMontoConRecargoTarjeta(montoBaseNum, recargoTarjetaPct)
+  // El monto que se registra como pago real: con recargo si es tarjeta,
+  // igual al base para cualquier otra forma de pago.
+  const montoARegistrar = esTarjeta ? montoConRecargo : montoBaseNum
+  // La validación es siempre contra el monto BASE (lo que cancela saldo),
+  // nunca contra el monto con recargo.
+  const montoValido = montoBaseNum > 0 && montoBaseNum <= saldo + 0.01
 
   async function handleConfirmar() {
     if (!montoValido) {
       toast.error(
-        montoNum <= 0
+        montoBaseNum <= 0
           ? 'Ingresá un monto mayor a cero.'
           : `El monto no puede superar el saldo ($${formatMoney(saldo)}).`,
       )
       return
     }
     const pagoBase = nuevoPago(obra.id, siguienteNumero)
-    pagoBase.monto = montoNum
+    pagoBase.monto = montoARegistrar
+    pagoBase.montoBase = montoBaseNum
     pagoBase.fecha = new Date(fecha + 'T12:00:00').toISOString()
-    pagoBase.formaPago = (formaPago || undefined) as FormaPago | undefined
+    pagoBase.formaPago = formaPago
     pagoBase.nota = nota.trim() || undefined
     try {
       const pagoCreado = await crearPagoMutation.mutateAsync(pagoBase)
       setPagoConfirmado(pagoCreado ?? pagoBase)
-      toast.success(`Pago de $${formatMoney(montoNum)} registrado.`)
+      toast.success(`Pago de $${formatMoney(montoARegistrar)} registrado.`)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al registrar el pago.')
     }
@@ -143,6 +165,14 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
                   {String(pagoConfirmado.numeroRecibo).padStart(4, '0')} · Nuevo
                   saldo: ${formatMoney(totalesLuegoDePago.saldoPendiente)}
                 </p>
+                {pagoConfirmado.formaPago === 'Tarjeta' &&
+                  pagoConfirmado.montoBase != null &&
+                  pagoConfirmado.montoBase < pagoConfirmado.monto && (
+                    <p className="text-xs text-foreground/70 mt-1">
+                      Incluye recargo por tarjeta — del saldo se descuentan $
+                      {formatMoney(pagoConfirmado.montoBase)}.
+                    </p>
+                  )}
               </div>
             </div>
             <ReciboPagoPdfButton
@@ -170,7 +200,9 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
           <>
             <SheetBody>
               <div className="grid gap-2">
-                <Label htmlFor="pago-monto">Monto</Label>
+                <Label htmlFor="pago-monto">
+                  {esTarjeta ? 'Monto a cubrir del saldo' : 'Monto'}
+                </Label>
                 <div className="flex gap-2">
                   <MoneyInput
                     id="pago-monto"
@@ -190,10 +222,21 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
                     Saldo completo
                   </Button>
                 </div>
-                {montoNum > saldo && (
+                {montoBaseNum > saldo && (
                   <p className="text-xs text-destructive">
                     Supera el saldo pendiente.
                   </p>
+                )}
+                {esTarjeta && montoBaseNum > 0 && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                    <p className="text-xs text-muted-foreground">
+                      Con tarjeta (recargo del {Math.round(recargoTarjetaPct * 100)}%), a este
+                      cliente hay que cobrarle:
+                    </p>
+                    <p className="text-base font-semibold text-primary">
+                      ${formatMoney(montoConRecargo)}
+                    </p>
+                  </div>
                 )}
               </div>
 
@@ -218,7 +261,7 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
                       <SelectValue placeholder="Seleccionar" />
                     </SelectTrigger>
                     <SelectContent>
-                      {FORMAS_PAGO.map((f) => (
+                      {FORMAS_PAGO_VENTA.map((f) => (
                         <SelectItem key={f} value={f}>
                           {f}
                         </SelectItem>

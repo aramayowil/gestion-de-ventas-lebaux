@@ -15,7 +15,6 @@ export type FormaPago =
   | 'Efectivo'
   | 'Transferencia'
   | 'Tarjeta'
-  | 'Mixto'
   | 'A convenir'
 
 /**
@@ -69,6 +68,9 @@ export interface Cliente {
   vendedorId: string | null
   /** IDs de vendedores con los que se compartió este cliente. */
   compartidoCon: string[]
+  /** Cliente mayorista (precios/condiciones diferenciadas). Se tilda al
+   * cargar el cliente y se puede filtrar desde la lista de Clientes. */
+  isMayorista: boolean
 }
 
 /* ────────────── Tipología (línea de obra / abertura) ────────────── */
@@ -126,7 +128,14 @@ export interface Pago {
   obraId: string
   numeroRecibo: number // correlativo global
   fecha: string // ISO
+  /** Monto REAL cobrado/registrado. Si la forma de pago es 'Tarjeta',
+   * ya incluye el recargo (montoBase × (1 + recargoTarjetaPct)). Para
+   * cualquier otra forma de pago, monto === montoBase. */
   monto: number
+  /** Monto que efectivamente descuenta del saldo pendiente de la obra
+   * (equivalente efectivo/transferencia, SIN el recargo de tarjeta).
+   * Si no está definido (pagos legacy), se asume igual a `monto`. */
+  montoBase?: number
   formaPago?: FormaPago
   nota?: string
   anulado: boolean
@@ -226,6 +235,10 @@ export interface ConfigSistema {
    * está al tope, no se ajusta), Herrero 0.105 (se completa hasta el
    * IVA base al discriminar). */
   ivaPorLinea: Record<LineaAbertura, number>
+  /** Recargo (0..1, ej. 0.30 = 30%) que se aplica sobre el monto base
+   * de cualquier pago (inicial o posterior) realizado con Tarjeta.
+   * Configurable desde Ajustes. */
+  recargoTarjetaPct: number
 }
 
 /* ────────────── Fábricas ────────────── */
@@ -239,6 +252,7 @@ export function nuevoCliente(
     creadoEn: new Date().toISOString(),
     vendedorId: datos.vendedorId ?? null,
     compartidoCon: datos.compartidoCon ?? [],
+    isMayorista: datos.isMayorista ?? false,
   }
 }
 
@@ -260,7 +274,9 @@ export function nuevaObra(clienteId: string, tipo: TipoObra = 'venta'): Obra {
     clienteId,
     fecha: ahora,
     tipologias: [nuevaTipologia()],
-    formaPago: 'A convenir',
+    // 'A convenir' solo tiene sentido en presupuestos; las ventas
+    // arrancan en 'Efectivo' por defecto (sin recargo).
+    formaPago: tipo === 'presupuesto' ? 'A convenir' : 'Efectivo',
     descuentoPct: 0,
     descuentoBase: 'final',
     creadoEn: ahora,
@@ -278,6 +294,7 @@ export function nuevoPago(obraId: string, numeroRecibo: number): Pago {
     numeroRecibo,
     fecha: new Date().toISOString(),
     monto: 0,
+    montoBase: 0,
     formaPago: undefined,
     nota: undefined,
     anulado: false,

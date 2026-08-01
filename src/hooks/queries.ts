@@ -58,6 +58,7 @@ function mapCliente(d: Record<string, unknown>): Cliente {
     creadoEn: d.creado_en as string,
     vendedorId: (d.vendedor_id as string) ?? null,
     compartidoCon: (d.compartido_con as string[]) ?? [],
+    isMayorista: (d.is_mayorista as boolean) ?? false,
   }
 }
 
@@ -105,6 +106,7 @@ export function useCreateCliente() {
           telefono_whatsapp: cliente.telefonoWhatsApp,
           vendedor_id: cliente.vendedorId,
           compartido_con: cliente.compartidoCon ?? [],
+          is_mayorista: cliente.isMayorista ?? false,
         })
         .select()
         .single()
@@ -126,6 +128,7 @@ export function useUpdateCliente() {
           telefono_whatsapp: cliente.telefonoWhatsApp,
           vendedor_id: cliente.vendedorId,
           compartido_con: cliente.compartidoCon,
+          is_mayorista: cliente.isMayorista,
         })
         .eq('id', cliente.id)
       if (error) throw new Error(error.message)
@@ -439,6 +442,7 @@ function mapPago(d: Record<string, unknown>): Pago {
     numeroRecibo: d.numero_recibo as number,
     fecha: d.fecha as string,
     monto: d.monto as number,
+    montoBase: (d.monto_base as number) ?? (d.monto as number),
     formaPago: (d.forma_pago as Pago['formaPago']) ?? undefined,
     nota: (d.nota as string) ?? undefined,
     anulado: (d.anulado as boolean) ?? false,
@@ -494,6 +498,7 @@ export function useCreatePago() {
           numero_recibo: pago.numeroRecibo,
           fecha: pago.fecha,
           monto: pago.monto,
+          monto_base: pago.montoBase ?? pago.monto,
           forma_pago: pago.formaPago ?? null,
           nota: pago.nota ?? null,
         })
@@ -517,6 +522,7 @@ export function useUpdatePago() {
         .from('pagos')
         .update({
           monto: pago.monto,
+          monto_base: pago.montoBase ?? pago.monto,
           forma_pago: pago.formaPago ?? null,
           nota: pago.nota ?? null,
           anulado: pago.anulado,

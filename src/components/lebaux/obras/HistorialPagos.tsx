@@ -95,6 +95,13 @@ export function HistorialPagos({ obra, pagos }: Props) {
                   {pago.formaPago ? ` · ${pago.formaPago}` : ''}
                   {pago.nota ? ` · ${pago.nota}` : ''}
                 </p>
+                {pago.formaPago === 'Tarjeta' &&
+                  pago.montoBase != null &&
+                  pago.montoBase < pago.monto && (
+                    <p className="text-[11px] text-primary/80 truncate">
+                      Incluye recargo · ${formatMoney(pago.montoBase)} al saldo
+                    </p>
+                  )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {cliente && (
@@ -127,7 +134,10 @@ export function HistorialPagos({ obra, pagos }: Props) {
                       </AlertDialogTitle>
                       <AlertDialogDescription>
                         El pago de ${formatMoney(pago.monto)} se marcará como
-                        anulado. El saldo pendiente de la obra se recalculará.
+                        anulado. El saldo pendiente de la obra se recalculará
+                        {pago.formaPago === 'Tarjeta' && pago.montoBase != null && pago.montoBase < pago.monto
+                          ? ` (vuelven a deberse $${formatMoney(pago.montoBase)}).`
+                          : '.'}{' '}
                         El recibo quedará en el historial para auditoría.
                       </AlertDialogDescription>
                     </AlertDialogHeader>

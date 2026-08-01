@@ -7,6 +7,15 @@
  *   3. Banda de 4 KPIs (clientes, obras activas, saldo, cobrado mes)
  *   4. Grid 2-col: cobranza (donut + bars) + alertas de deuda
  *   5. Presupuestos por estado (contadores rápidos)
+ *
+ * Importante: todos los totales financieros (facturado, cobrado, saldo,
+ * deudores, ranking de vendedores) se calculan SOLO sobre ventas
+ * confirmadas (`esVenta()`, es decir `estadoPresupuesto === 'aceptado'`).
+ * Un presupuesto todavía no aceptado es una venta posible, no una venta
+ * real, y no debe inflar estos números — aunque su campo `tipo` siga
+ * siendo 'presupuesto' en la base. La única sección que sí cuenta todos
+ * los estados es "Presupuestos por estado", que es puramente informativa
+ * sobre el embudo de ventas.
  */
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -33,6 +42,7 @@ import {
   calcularTotalesObra,
   formatMoney,
   formatFechaLarga,
+  esVenta,
 } from '@/lib/obra-totales'
 import type { EstadoPresupuesto } from '@/lib/types'
 
@@ -67,14 +77,20 @@ export function DashboardPage({ onVolver, onVerCliente }: Props) {
   // skeletons en vez de calcular KPIs con datos parciales.
   const cargandoDashboard = cargandoClientes || cargandoUsers || cargandoObras || cargandoPagos
 
-  /* KPIs */
+  /* Obras que ya son ventas confirmadas (presupuesto aceptado, o venta
+   * directa aceptada). Los presupuestos que todavía no se aceptaron son
+   * posibles ventas, no ventas reales: no deben sumar en los totales
+   * financieros del Dashboard. */
+  const ventas = React.useMemo(() => obras.filter(esVenta), [obras])
+
+  /* KPIs — solo sobre ventas, nunca sobre presupuestos sin aceptar. */
   const kpis = React.useMemo(() => {
     let totalFacturado = 0
     let totalAbonado = 0
     let totalSaldo = 0
     let obrasActivas = 0
 
-    for (const o of obras) {
+    for (const o of ventas) {
       const pagosObra = pagos.filter((p) => p.obraId === o.id)
       const t = calcularTotalesObra(o, pagosObra)
       totalFacturado += t.totalConDescuento
@@ -93,12 +109,12 @@ export function DashboardPage({ onVolver, onVerCliente }: Props) {
       .reduce((acc, p) => acc + (p.monto || 0), 0)
 
     return { totalFacturado, totalAbonado, totalSaldo, cobradoEsteMes, obrasActivas }
-  }, [obras, pagos])
+  }, [ventas, pagos])
 
-  /* Deudores */
+  /* Deudores — saldo pendiente solo de ventas confirmadas. */
   const deudores = React.useMemo<Deudor[]>(() => {
     const map = new Map<string, number>()
-    for (const o of obras) {
+    for (const o of ventas) {
       const pagosObra = pagos.filter((p) => p.obraId === o.id)
       const t = calcularTotalesObra(o, pagosObra)
       if (t.saldoPendiente > 0) {
@@ -109,7 +125,7 @@ export function DashboardPage({ onVolver, onVerCliente }: Props) {
       .map((c) => ({ cliente: c, saldo: map.get(c.id) ?? 0 }))
       .filter((d) => d.saldo > 0)
       .sort((a, b) => b.saldo - a.saldo)
-  }, [clientes, obras, pagos])
+  }, [clientes, ventas, pagos])
 
   /* Pagos por mes (últimos 6) */
   const pagosPorMes = React.useMemo<BarDatum[]>(() => {
@@ -333,7 +349,7 @@ export function DashboardPage({ onVolver, onVerCliente }: Props) {
                     .map((v) => {
                       const clientesV = todosClientes.filter((c) => c.vendedorId === v.id)
                       const clienteIdsV = new Set(clientesV.map((c) => c.id))
-                      const obrasV = todasObras.filter((o) => clienteIdsV.has(o.clienteId))
+                      const obrasV = todasObras.filter((o) => clienteIdsV.has(o.clienteId) && esVenta(o))
                       const pagosV = pagos.filter((p) => {
                         const obra = todasObras.find((o) => o.id === p.obraId)
                         return obra && clienteIdsV.has(obra.clienteId) && !p.anulado

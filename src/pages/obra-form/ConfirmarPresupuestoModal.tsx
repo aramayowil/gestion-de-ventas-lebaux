@@ -1,13 +1,17 @@
 /**
  * pages/obra-form/ConfirmarPresupuestoModal.tsx
  *
- * Paso 1 del flujo "Finalizar Presupuesto" (y su equivalente al editar un
- * presupuesto pendiente/rechazado: "Actualizar Presupuesto"). Muestra el
- * resumen (ítems, totales, descuento, IVA, pago inicial si hay) y pide
- * Confirmar o Cancelar. Si el usuario confirma, el caller persiste la obra
- * como 'pendiente' y abre el PresupuestoModal en modo `alFinalizar`.
+ * Paso 1 (solo presupuesto): resumen final antes de guardar el
+ * presupuesto como 'pendiente' — muestra cantidad de aberturas, forma
+ * de pago, descuento/IVA si corresponde, pago inicial (si lo hay) y el
+ * total. Botones [Cancelar] / [Confirmar].
+ *
+ * Al confirmar, `onConfirmar` (handleConfirmarPresupuesto en useObraForm)
+ * persiste la obra y, si corresponde, el pago inicial — recién ahí se
+ * cierra este modal y se abre el Paso 2 (PresupuestoModal, imprimir/enviar).
  */
-import { CheckCircle2 } from 'lucide-react'
+import * as React from 'react'
+import { FileText, Wallet } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -17,16 +21,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { calcularTotalesObra, formatMoney } from '@/lib/obra-totales'
-import type { Obra } from '@/lib/types'
+import { formatMoney } from '@/lib/obra-totales'
+import type { Obra, TotalesObra } from '@/lib/types'
 
 interface Props {
   open: boolean
   obra: Obra
-  totales: ReturnType<typeof calcularTotalesObra>
+  totales: TotalesObra
   cantAberturas: number
   pagoInicialNum: number
-  onConfirmar: () => void
+  onConfirmar: () => void | Promise<void>
   onCancelar: () => void
 }
 
@@ -39,98 +43,105 @@ export function ConfirmarPresupuestoModal({
   onConfirmar,
   onCancelar,
 }: Props) {
+  const [enviando, setEnviando] = React.useState(false)
+
+  React.useEffect(() => {
+    if (open) setEnviando(false)
+  }, [open])
+
+  async function handleConfirmar() {
+    setEnviando(true)
+    try {
+      await onConfirmar()
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  const hayDescuento = (obra.descuentoPct || 0) > 0
+  const hayPagoInicial = pagoInicialNum > 0
+
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onCancelar()}>
+    <Dialog open={open} onOpenChange={(v) => !v && !enviando && onCancelar()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display text-xl">
-            ¿Finalizar este presupuesto?
+          <DialogTitle className="font-display text-xl flex items-center gap-2">
+            <FileText className="size-5 text-primary" aria-hidden="true" />
+            Confirmar presupuesto
           </DialogTitle>
           <DialogDescription>
-            Revisá el resumen. Al confirmar, el presupuesto queda guardado
-            como <strong className="text-foreground">pendiente</strong> a
-            la espera de la decisión del cliente.
+            Revisá el resumen antes de guardarlo. Vas a poder editarlo o
+            reenviarlo después.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Lista de ítems */}
-        <div className="rounded-xl border border-border/60 bg-card/40 overflow-hidden">
-          <div className="px-3 py-2 border-b border-border/40 flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Ítems
-            </span>
-            <span className="text-xs font-medium">
-              {obra.tipologias.length} · {cantAberturas} abertura{cantAberturas === 1 ? '' : 's'}
+        <div className="grid gap-2 rounded-lg border border-border/60 p-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Ítems</span>
+            <span className="font-medium">
+              {obra.tipologias.length}{' '}
+              {obra.tipologias.length === 1 ? 'ítem' : 'ítems'} · {cantAberturas}{' '}
+              {cantAberturas === 1 ? 'abertura' : 'aberturas'}
             </span>
           </div>
-          <ul className="divide-y divide-border/30 max-h-40 overflow-y-auto">
-            {obra.tipologias.map((t, i) => (
-              <li key={t.id} className="px-3 py-2 flex items-start gap-2 text-sm">
-                <span className="shrink-0 size-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">
-                  {i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">
-                    {t.descripcion || <span className="text-muted-foreground italic">Sin descripción</span>}
-                  </p>
-                  <p className="text-xs text-muted-foreground money">
-                    {t.cantidad} × ${formatMoney(t.precioUnitario)} = ${formatMoney(t.cantidad * t.precioUnitario)}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Totales */}
-        <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-4 space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Total bruto</span>
-            <span className="money font-medium">${formatMoney(totales.totalBruto)}</span>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Forma de pago</span>
+            <span className="font-medium">{obra.formaPago || '—'}</span>
           </div>
-          {totales.descuentoMonto > 0 && (
-            <div className="flex items-center justify-between text-sm">
+          {hayDescuento && (
+            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">
-                Descuento ({Math.round(totales.descuentoPct * 100)}%)
+                Descuento ({Math.round((obra.descuentoPct || 0) * 100)}%)
               </span>
-              <span className="money text-destructive">
+              <span className="font-medium">
                 −${formatMoney(totales.descuentoMonto)}
               </span>
             </div>
           )}
           {totales.incluyeIva && (
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">
-                IVA ({Math.round(totales.ivaPct * 1000) / 10}%)
+                IVA ({Math.round((totales.ivaPct || 0) * 1000) / 10}%)
               </span>
-              <span className="money text-success">
+              <span className="font-medium">
                 +${formatMoney(totales.ivaMonto)}
               </span>
             </div>
           )}
-          {pagoInicialNum > 0 && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Pago inicial</span>
-              <span className="money text-success">
-                ${formatMoney(pagoInicialNum)}
+          {hayPagoInicial && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <Wallet className="size-3.5" aria-hidden="true" />
+                Pago inicial
               </span>
+              <span className="font-medium">${formatMoney(pagoInicialNum)}</span>
             </div>
           )}
-          <div className="flex items-center justify-between pt-2 border-t border-border/40 text-base font-semibold">
-            <span>Total {pagoInicialNum > 0 && '· saldo'}</span>
-            <span className="money font-display">
-              ${formatMoney(pagoInicialNum > 0 ? Math.max(0, totales.totalConIva - pagoInicialNum) : totales.totalConIva)}
+          <div className="flex items-center justify-between border-t border-border/60 pt-2 mt-1">
+            <span className="font-semibold">Total</span>
+            <span className="font-semibold text-base money">
+              ${formatMoney(totales.totalConIva)}
             </span>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" size="lg" onClick={onCancelar} className="sm:flex-1">
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={onCancelar}
+            disabled={enviando}
+            className="sm:flex-1"
+          >
             Cancelar
           </Button>
-          <Button size="lg" onClick={onConfirmar} className="sm:flex-1">
-            <CheckCircle2 className="size-4" />
-            Confirmar
+          <Button
+            size="lg"
+            onClick={handleConfirmar}
+            disabled={enviando}
+            className="sm:flex-1"
+          >
+            {enviando ? 'Guardando...' : 'Confirmar presupuesto'}
           </Button>
         </DialogFooter>
       </DialogContent>

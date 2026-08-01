@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   Share2,
   UserCog,
+  Store,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,6 +50,7 @@ import {
   normalizarTexto,
   normalizarWhatsApp,
   diasHastaVencimiento,
+  esVenta,
 } from '@/lib/obra-totales'
 import type { Cliente, EstadoPago, Obra, Pago, User } from '@/lib/types'
 import { EstadoBadge } from '@/components/lebaux/clientes/EstadoBadge'
@@ -66,9 +68,12 @@ interface Props {
 interface ResumenCliente {
   cliente: Cliente
   cantidadObras: number
+  /** Suma de saldoPendiente solo de ventas confirmadas (ver `esVenta()`
+   * en obra-totales). Los presupuestos sin aceptar no cuentan acá: son
+   * ventas posibles, no deuda real. */
   saldoTotal: number
   estadoPeor: EstadoPago
-  /** Tiene al menos una obra tipo 'venta' (presupuesto aceptado o venta directa). */
+  /** Tiene al menos una venta confirmada (estadoPresupuesto='aceptado'). */
   tieneVenta: boolean
   /** Tiene al menos un presupuesto pendiente de respuesta. */
   tienePresupuestoPendiente: boolean
@@ -87,7 +92,7 @@ interface ResumenCliente {
 }
 
 /** Tabs estilo WhatsApp para filtrar la lista de clientes. */
-type FiltroTab = 'todos' | 'deuda' | 'ventas' | 'presupuestos' | 'saldados'
+type FiltroTab = 'todos' | 'deuda' | 'ventas' | 'presupuestos' | 'saldados' | 'mayoristas'
 
 const TABS: { id: FiltroTab; label: string; icon: React.ElementType }[] = [
   { id: 'todos', label: 'Todos', icon: Users },
@@ -95,6 +100,7 @@ const TABS: { id: FiltroTab; label: string; icon: React.ElementType }[] = [
   { id: 'ventas', label: 'Ventas', icon: Receipt },
   { id: 'presupuestos', label: 'Presupuestos', icon: FileClock },
   { id: 'saldados', label: 'Saldados', icon: CheckCircle2 },
+  { id: 'mayoristas', label: 'Mayoristas', icon: Store },
 ]
 
 /**
@@ -233,16 +239,20 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
       for (const o of obrasCliente) {
         const pagosObra = pagos.filter((p) => p.obraId === o.id)
         const totales = calcularTotalesObra(o, pagosObra)
-        saldoTotal += totales.saldoPendiente
-        const est = estadoDeSaldo(totales.saldoPendiente, totales.totalConDescuento)
-        if (ordenEstado[est] < ordenEstado[estadoPeor]) {
-          estadoPeor = est
-        }
-        if (totales.saldoPendiente > 0) {
-          obrasConSaldo.push({ obra: o, pagosObra })
-        }
-        // "Venta": obra tipo venta directa, o presupuesto ya aceptado.
-        if ((o.tipo ?? 'venta') === 'venta' || o.estadoPresupuesto === 'aceptado') {
+        // Saldo y estado de deuda: solo sobre ventas confirmadas
+        // (estadoPresupuesto='aceptado'). Un presupuesto todavía no
+        // aceptado es una venta posible, no una deuda real — no debe
+        // sumar acá aunque matemáticamente "calcularTotalesObra" le
+        // devuelva un saldoPendiente igual a su total (nunca tuvo pagos).
+        if (esVenta(o)) {
+          saldoTotal += totales.saldoPendiente
+          const est = estadoDeSaldo(totales.saldoPendiente, totales.totalConDescuento)
+          if (ordenEstado[est] < ordenEstado[estadoPeor]) {
+            estadoPeor = est
+          }
+          if (totales.saldoPendiente > 0) {
+            obrasConSaldo.push({ obra: o, pagosObra })
+          }
           tieneVenta = true
         }
         // "Presupuesto": cotización todavía esperando respuesta del cliente.
@@ -290,6 +300,8 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
         return r.tienePresupuestoPendiente
       case 'saldados':
         return r.estadoPeor === 'pagado'
+      case 'mayoristas':
+        return r.cliente.isMayorista
       case 'todos':
       default:
         return true
@@ -315,6 +327,7 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
       ventas: 0,
       presupuestos: 0,
       saldados: 0,
+      mayoristas: 0,
     }
     for (const r of resumenClientes) {
       if (!pasaFiltroVendedor(r)) continue
@@ -323,6 +336,7 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
       if (pasaTab(r, 'ventas')) base.ventas++
       if (pasaTab(r, 'presupuestos')) base.presupuestos++
       if (pasaTab(r, 'saldados')) base.saldados++
+      if (pasaTab(r, 'mayoristas')) base.mayoristas++
     }
     return base
   }, [resumenClientes, pasaTab, pasaFiltroVendedor])
@@ -785,6 +799,12 @@ function ClienteCard({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold truncate font-display">{cliente.nombre}</span>
               <EstadoBadge estado={estadoPeor} saldoPendiente={saldoTotal} size="sm" />
+              {cliente.isMayorista && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                  <Store className="size-3" aria-hidden="true" />
+                  Mayorista
+                </span>
+              )}
               {tienePresupuestoPendiente && diasVencimientoMin !== undefined && (
                 <VencimientoBadge dias={diasVencimientoMin} />
               )}

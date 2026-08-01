@@ -5,13 +5,20 @@ import type { ColorAbertura, FormaPago, LineaAbertura, ConfigEmpresa, ConfigSist
 
 export const LINEAS: LineaAbertura[] = ['Modena', 'Herrero', 'A30']
 export const COLORES: ColorAbertura[] = ['Blanco', 'Negro', 'Gris']
+/** Formas de pago para PRESUPUESTOS (incluye 'A convenir', ya que todavía
+ * no hay cobro real). 'Mixto' ya no existe como forma de pago. */
 export const FORMAS_PAGO: FormaPago[] = [
   'Efectivo',
   'Transferencia',
   'Tarjeta',
-  'Mixto',
   'A convenir',
 ]
+
+/** Formas de pago para VENTAS (pago inicial y pagos posteriores). No
+ * incluye 'A convenir' (no aplica a un cobro real) ni 'Mixto' (cada pago
+ * puntual tiene su propia forma de pago; para cubrir el saldo con más de
+ * una forma, se registran pagos separados). */
+export const FORMAS_PAGO_VENTA: FormaPago[] = ['Efectivo', 'Transferencia', 'Tarjeta']
 
 /** Configuración por defecto de la empresa — sobrescribible desde Ajustes. */
 export const EMPRESA_DEFAULT: ConfigEmpresa = {
@@ -36,6 +43,8 @@ export const SISTEMA_DEFAULT: ConfigSistema = {
     Herrero: 0.105,
     A30: 0.105,
   },
+  // Recargo por pago con tarjeta, configurable desde Ajustes.
+  recargoTarjetaPct: 0.3,
 }
 
 /** Etiquetas de estado de presupuesto (solo para UI). */

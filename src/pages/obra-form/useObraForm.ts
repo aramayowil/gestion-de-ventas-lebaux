@@ -36,7 +36,7 @@ import {
 } from '@/hooks/queries'
 import { useBorradorStore } from '@/lib/stores/borrador-store'
 import { useDescripcionesStore } from '@/lib/stores/descripciones-store'
-import { calcularTotalesObra, formatMoney } from '@/lib/obra-totales'
+import { calcularTotalesObra, calcularMontoConRecargoTarjeta, formatMoney } from '@/lib/obra-totales'
 import {
   nuevaObra,
   nuevaTipologia,
@@ -98,14 +98,13 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
     const draft = obtenerBorrador(clienteId, tipo)
     if (draft) {
       const o = structuredClone(draft.obra)
-      // Asegurar forma de pago por defecto 'A convenir' si el draft no la tenía
-      if (!o.formaPago) o.formaPago = 'A convenir'
+      // Asegurar forma de pago por defecto según el tipo si el draft no la tenía
+      // ('A convenir' solo tiene sentido en presupuestos).
+      if (!o.formaPago) o.formaPago = tipo === 'presupuesto' ? 'A convenir' : 'Efectivo'
       return o
     }
-    const nueva = nuevaObra(clienteId, tipo)
-    // nuevaObra ya setea formaPago='A convenir', pero por las dudas:
-    if (!nueva.formaPago) nueva.formaPago = 'A convenir'
-    return nueva
+    // nuevaObra ya setea la forma de pago por defecto según el tipo.
+    return nuevaObra(clienteId, tipo)
   })
 
   // `obraGuardadaId` guarda el ID real (asignado por Supabase) de la obra
@@ -380,11 +379,19 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
     // Caso 3: ya procesado en esta sesión
     if (pagoRecienCreado) return pagoRecienCreado
 
+    // `pagoInicialNum` es siempre el monto BASE (lo que cubre del saldo).
+    // Si la forma es Tarjeta, el monto REAL registrado incluye el recargo.
+    const montoReal =
+      pagoInicialForma === 'Tarjeta'
+        ? calcularMontoConRecargoTarjeta(pagoInicialNum, sistemaAjustes.recargoTarjetaPct)
+        : pagoInicialNum
+
     // Caso 4: actualizar pago existente
     if (primerPagoExistente) {
       const pagoActualizado: Pago = {
         ...primerPagoExistente,
-        monto: pagoInicialNum,
+        monto: montoReal,
+        montoBase: pagoInicialNum,
         formaPago: (pagoInicialForma || undefined) as FormaPago | undefined,
       }
       await actualizarPagoMutation.mutateAsync(pagoActualizado)
@@ -394,7 +401,8 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
 
     // Caso 5: crear nuevo pago (el id real lo asigna Supabase)
     const pagoBase = nuevoPago(obraId, siguienteNumero)
-    pagoBase.monto = pagoInicialNum
+    pagoBase.monto = montoReal
+    pagoBase.montoBase = pagoInicialNum
     pagoBase.formaPago = (pagoInicialForma || undefined) as FormaPago | undefined
     const pagoCreado = await crearPagoMutation.mutateAsync(pagoBase)
     const pagoReal = pagoCreado ?? pagoBase

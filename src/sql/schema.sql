@@ -49,6 +49,7 @@ create table if not exists public.clientes (
   nombre          text not null default '',
   telefono_whatsapp text not null default '',
   compartido_con  jsonb not null default '[]'::jsonb,
+  is_mayorista    boolean not null default false,
   creado_en       timestamptz not null default now()
 );
 
@@ -56,6 +57,8 @@ create table if not exists public.clientes (
 create index if not exists idx_clientes_vendedor on public.clientes(vendedor_id);
 -- Índice para buscar por nombre (búsqueda)
 create index if not exists idx_clientes_nombre on public.clientes using gin (to_tsvector('simple', nombre));
+-- Índice para el filtro "Mayoristas" de la lista de clientes
+create index if not exists idx_clientes_mayorista on public.clientes(is_mayorista) where is_mayorista;
 
 comment on table public.clientes is 'Clientes del sistema. Cada cliente pertenece a un vendedor y puede compartirse con otros.';
 
@@ -155,7 +158,11 @@ create table if not exists public.pagos (
   obra_id         uuid not null references public.obras(id) on delete cascade,
   numero_recibo   integer not null,
   fecha           timestamptz not null default now(),
+  -- monto real cobrado/registrado (con recargo de tarjeta incluido, si aplica).
   monto           numeric(12,2) not null default 0,
+  -- monto que efectivamente cancela saldo de la obra (sin recargo de
+  -- tarjeta). Nullable: pagos legacy no lo tienen, se asume igual a `monto`.
+  monto_base      numeric(12,2),
   forma_pago      text,
   nota            text,
   anulado         boolean not null default false,
@@ -642,6 +649,31 @@ create policy "borradores_delete_own"
 -- Y crear la fila de ajustes global:
 --
 --   insert into public.ajustes (vendedor_id) values (null);
+
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRACIÓN: is_mayorista en clientes
+-- ════════════════════════════════════════════════════════════════
+-- Si ya corriste este script antes (tabla `clientes` ya existía), el
+-- `create table if not exists` de más arriba no le agrega columnas
+-- nuevas a una tabla existente. Este bloque es idempotente: agregá
+-- la columna solo si todavía no está.
+
+alter table public.clientes
+  add column if not exists is_mayorista boolean not null default false;
+
+-- Pagos creados antes de que existiera el recargo de tarjeta: monto_base
+-- no existía, así que monto === montoBase siempre. Completamos monto_base
+-- con el valor de monto para no romper el cálculo de saldo de obras viejas.
+alter table public.pagos
+  add column if not exists monto_base numeric(12,2);
+
+update public.pagos
+set monto_base = monto
+where monto_base is null;
+
+create index if not exists idx_clientes_mayorista
+  on public.clientes(is_mayorista) where is_mayorista;
 
 
 -- ════════════════════════════════════════════════════════════════

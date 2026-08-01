@@ -57,12 +57,59 @@ export function desglosarIvaItem(
   }
 }
 
+/**
+ * Suma lo que efectivamente CANCELA saldo de la obra: el monto BASE de
+ * cada pago (equivalente efectivo/transferencia). Para pagos con Tarjeta,
+ * `monto` incluye el recargo del 30% (o el % configurado) — ese extra es
+ * solo el costo financiero que pagó el cliente por usar tarjeta, no
+ * corresponde al valor real de la obra, así que NO debe descontar más
+ * saldo del que realmente corresponde.
+ *
+ * Fallback a `monto` para pagos legacy que no tengan `montoBase` (creados
+ * antes de que existiera este campo, donde monto === montoBase siempre).
+ */
 export function totalAbonadoDePagos(pagos: Pago[]): number {
+  return redondearMoneda(
+    pagos
+      .filter((p) => !p.anulado)
+      .reduce((acc, p) => acc + (p.montoBase ?? p.monto ?? 0), 0),
+  )
+}
+
+/**
+ * Suma lo que efectivamente ENTRÓ EN CAJA (incluye el recargo de
+ * tarjeta). Útil para reportes de "cuánto dinero cobró el vendedor",
+ * distinto de `totalAbonadoDePagos` que mide cuánto se saldó de la obra.
+ */
+export function totalCobradoDePagos(pagos: Pago[]): number {
   return redondearMoneda(
     pagos
       .filter((p) => !p.anulado)
       .reduce((acc, p) => acc + (p.monto || 0), 0),
   )
+}
+
+/**
+ * Dado un monto BASE (lo que se quiere cubrir del saldo, en términos
+ * efectivo/transferencia) y el % de recargo de tarjeta configurado,
+ * devuelve el monto REAL a cobrarle al cliente si paga con Tarjeta.
+ */
+export function calcularMontoConRecargoTarjeta(
+  montoBase: number,
+  recargoTarjetaPct: number,
+): number {
+  return redondearMoneda((montoBase || 0) * (1 + (recargoTarjetaPct || 0)))
+}
+
+/**
+ * Devuelve solo el monto del recargo (la diferencia entre lo que se le
+ * cobra al cliente con tarjeta y el monto base que cancela del saldo).
+ */
+export function calcularRecargoTarjeta(
+  montoBase: number,
+  recargoTarjetaPct: number,
+): number {
+  return redondearMoneda(calcularMontoConRecargoTarjeta(montoBase, recargoTarjetaPct) - (montoBase || 0))
 }
 
 /**
@@ -181,6 +228,19 @@ export function calcularTotalesObra(
     totalAbonado,
     saldoPendiente,
   }
+}
+
+/**
+ * Una obra es una VENTA real cuando su presupuesto fue aceptado —
+ * sin importar el campo `tipo` original ('venta' o 'presupuesto').
+ * Es una transición irreversible: una vez aceptada, la obra nunca
+ * vuelve a ser un presupuesto. Los KPIs de facturación/cobranza del
+ * Dashboard y de la ficha de cliente deben usar esta función para no
+ * contar presupuestos todavía no aceptados (son ventas posibles, no
+ * confirmadas) como si ya fueran plata facturada.
+ */
+export function esVenta(obra: Pick<Obra, 'estadoPresupuesto'>): boolean {
+  return obra.estadoPresupuesto === 'aceptado'
 }
 
 export function estadoDeSaldo(

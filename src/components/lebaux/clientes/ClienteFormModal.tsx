@@ -1,12 +1,13 @@
 /**
  * components/lebaux/clientes/ClienteFormModal.tsx — Modal para crear/editar cliente.
  *
- * Simplificado: solo pide nombre + teléfono WhatsApp (único).
+ * Pide nombre + teléfono WhatsApp (único) + si es cliente mayorista
+ * (isMayorista, filtrable desde la lista de Clientes).
  * El teléfono se normaliza a solo dígitos antes de validar y guardar.
  */
 import * as React from 'react'
 import { toast } from 'sonner'
-import { MessageCircle, AlertTriangle } from 'lucide-react'
+import { MessageCircle, AlertTriangle, Store } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -56,6 +57,7 @@ export function ClienteFormModal({
   const [nombre, setNombre] = React.useState('')
   const [telefono, setTelefono] = React.useState('')
   const [sinNumero, setSinNumero] = React.useState(false)
+  const [isMayorista, setIsMayorista] = React.useState(false)
 
   React.useEffect(() => {
     if (open) {
@@ -65,6 +67,7 @@ export function ClienteFormModal({
       setTelefono(telCrudo ? formatearTelefonoInput(telCrudo) : '')
       // Si es un cliente existente sin número, dejamos el check tildado
       setSinNumero(!!clienteExistente && !telCrudo)
+      setIsMayorista(clienteExistente?.isMayorista ?? false)
     }
   }, [open, clienteExistente])
 
@@ -116,6 +119,7 @@ export function ClienteFormModal({
           ...clienteExistente,
           nombre: nombreTrim,
           telefonoWhatsApp: telNormalizado,
+          isMayorista,
         }
         await actualizarClienteMutation.mutateAsync(cliente)
         toast.success(`Cliente "${cliente.nombre}" actualizado.`)
@@ -129,6 +133,7 @@ export function ClienteFormModal({
           telefonoWhatsApp: telNormalizado,
           vendedorId: currentUser?.id ?? null,
           compartidoCon: [],
+          isMayorista,
         })
         const creado = await crearClienteMutation.mutateAsync(nuevo)
         const clienteReal = creado ?? nuevo
@@ -251,6 +256,23 @@ export function ClienteFormModal({
                 </span>
               </p>
             )}
+          </div>
+
+          <div className="grid gap-2">
+            <label
+              htmlFor="cli-mayorista"
+              className="flex items-center gap-2 cursor-pointer select-none"
+            >
+              <Checkbox
+                id="cli-mayorista"
+                checked={isMayorista}
+                onCheckedChange={(v) => setIsMayorista(v === true)}
+              />
+              <span className="text-sm inline-flex items-center gap-1.5">
+                <Store className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                Cliente mayorista
+              </span>
+            </label>
           </div>
         </SheetBody>
 

@@ -492,6 +492,30 @@ export function AjustesPage({ onVolver }: Props) {
                 ))}
               </div>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reg-recargo-tarjeta">Recargo por pago con Tarjeta (%)</Label>
+              <NumericInput
+                id="reg-recargo-tarjeta"
+                allowDecimals
+                min={0}
+                max={100}
+                value={
+                  Math.round(
+                    (sistemaLocal.recargoTarjetaPct ?? SISTEMA_DEFAULT.recargoTarjetaPct) * 1000,
+                  ) / 10
+                }
+                onChange={(v) =>
+                  setSistemaLocal((s) => ({ ...s, recargoTarjetaPct: v / 100 }))
+                }
+                placeholder="30"
+                className="h-11"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Se aplica a cualquier pago (inicial o posterior) que el vendedor
+                registre con forma de pago Tarjeta, tanto en ventas como al
+                registrar un pago sobre una venta existente.
+              </p>
+            </div>
             <Button
               onClick={handleGuardarSistema}
               disabled={actualizarAjustes.isPending}

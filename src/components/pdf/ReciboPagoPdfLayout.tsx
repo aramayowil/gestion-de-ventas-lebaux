@@ -253,6 +253,11 @@ const styles = StyleSheet.create({
     color: BRAND,
     marginTop: 2,
   },
+  pagoDestacadoSub: {
+    fontSize: 7.5,
+    color: TEXT_MUTED,
+    marginTop: 1,
+  },
   // Fila destacada "SALDO PENDIENTE" sin fondo #f2f2f2 — solo negrita +
   // borde superior fino.
   totalFilaDestacada: {
@@ -421,6 +426,13 @@ export function ReciboPagoPdfLayout({ cliente, obra, pago, totales }: Props) {
               <Text style={styles.pagoDestacadoMonto}>
                 ${formatMoney(pago.monto)}
               </Text>
+              {pago.formaPago === 'Tarjeta' &&
+                pago.montoBase != null &&
+                pago.montoBase < pago.monto && (
+                  <Text style={styles.pagoDestacadoSub}>
+                    Incluye recargo por tarjeta · Se descuenta ${formatMoney(pago.montoBase)} del saldo
+                  </Text>
+                )}
             </View>
             <View style={styles.totalFila}>
               <Text>TOTAL DE LA OBRA:</Text>
