@@ -147,8 +147,11 @@ export function AgendaFabricaPage({ onVerCliente }: Props) {
   }, [turnos])
 
   /* ─── Helpers de calendario ─── */
-  const hoy = new Date()
-  hoy.setHours(0, 0, 0, 0)
+  const hoy = React.useMemo(() => {
+    const fecha = new Date()
+    fecha.setHours(0, 0, 0, 0)
+    return fecha
+  }, [])
 
   // Lunes de la semana actual + offset
   const lunesSemana = React.useMemo(() => {

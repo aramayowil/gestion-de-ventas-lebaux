@@ -1,7 +1,9 @@
 /**
  * pages/LoginPage.tsx — Pantalla de login con Supabase Auth.
  *
- * Pide email + password. Supabase Auth maneja la autenticación.
+ * Pide email + password. Supabase Auth maneja la autenticación y el formulario
+ * conserva su lugar mientras espera: así el usuario ve qué está ocurriendo en
+ * vez de saltar a una pantalla de carga global.
  */
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -11,6 +13,29 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Spinner } from '@/hooks/use-async-data'
+import { cn } from '@/lib/utils'
+
+function obtenerMensajeErrorLogin(error?: string): string {
+  const errorNormalizado = error?.toLowerCase() ?? ''
+
+  if (errorNormalizado.includes('invalid login credentials')) {
+    return 'El email o la contraseña no son correctos.'
+  }
+  if (errorNormalizado.includes('email not confirmed')) {
+    return 'Primero tenés que confirmar tu email.'
+  }
+  if (errorNormalizado.includes('rate limit')) {
+    return 'Hubo demasiados intentos. Esperá un momento y volvé a probar.'
+  }
+  if (
+    errorNormalizado.includes('fetch') ||
+    errorNormalizado.includes('network')
+  ) {
+    return 'No pudimos conectarnos. Revisá tu conexión e intentá nuevamente.'
+  }
+
+  return 'No pudimos iniciar sesión. Intentá nuevamente.'
+}
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -21,25 +46,55 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = React.useState(false)
   const [error, setError] = React.useState('')
   const [cargando, setCargando] = React.useState(false)
+  const [saliendo, setSaliendo] = React.useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    // Evita un segundo intento si el formulario se envía dos veces antes de
+    // que React alcance a deshabilitarlo (por ejemplo, con Enter + toque).
+    if (cargando) return
+
     setError('')
     setCargando(true)
 
-    const r = await login(email, password)
+    try {
+      const resultado = await login(email.trim(), password)
 
-    if (!r.ok) {
-      setError(r.error ?? 'Error al iniciar sesión. Verifica tus credenciales.')
+      if (!resultado.ok) {
+        setError(obtenerMensajeErrorLogin(resultado.error))
+        setCargando(false)
+        return
+      }
+
+      // La salida se coordina con la animación que Home ya reproduce al montar.
+      // Si el usuario pidió reducir movimiento, navegamos sin demoras.
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        navigate('/', { replace: true })
+        return
+      }
+
+      setSaliendo(true)
+    } catch {
+      setError(
+        'No pudimos conectarnos. Revisá tu conexión e intentá nuevamente.',
+      )
       setCargando(false)
-      return
     }
-
-    navigate('/', { replace: true })
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background p-4 sm:p-8">
+    <div
+      className={cn(
+        'flex min-h-dvh flex-col items-center justify-center bg-background p-4 sm:p-8',
+        saliendo && 'login-salida',
+      )}
+      onAnimationEnd={(event) => {
+        if (saliendo && event.target === event.currentTarget) {
+          navigate('/', { replace: true })
+        }
+      }}
+    >
       <div className="w-full max-w-sm mx-auto space-y-6">
         <div className="text-center space-y-3">
           <div className="flex justify-center">
@@ -60,7 +115,8 @@ export function LoginPage() {
         {/* Form */}
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-6 dark:bg-card/40 shadow-sm"
+          className="space-y-4 rounded-2xl border border-border/60 bg-card/60 p-6 shadow-sm backdrop-blur-sm dark:bg-card/40"
+          aria-busy={cargando}
         >
           <div className="grid gap-2">
             <Label htmlFor="email">
@@ -76,8 +132,12 @@ export function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@lebaux.com"
               autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
               autoFocus
               required
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? 'login-error' : undefined}
               disabled={cargando}
             />
           </div>
@@ -101,14 +161,16 @@ export function LoginPage() {
                 placeholder="••••••••"
                 autoComplete="current-password"
                 required
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? 'login-error' : undefined}
                 disabled={cargando}
-                className="pr-10" // Espacio para el icono del ojo
+                className="pr-12"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={cargando}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
+                className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={
                   showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
                 }
@@ -122,13 +184,14 @@ export function LoginPage() {
             </div>
           </div>
 
-          {/* Mensaje de Error con aria-live para accesibilidad */}
+          {/* Mensaje de error anunciado para accesibilidad */}
           {error && (
             <div
               className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3"
-              aria-live="polite"
+              id="login-error"
+              role="alert"
             >
-              <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
               <p className="text-sm text-destructive">{error}</p>
             </div>
           )}
@@ -137,7 +200,7 @@ export function LoginPage() {
             {cargando ? (
               <span className="flex items-center gap-2 justify-center">
                 <Spinner className="size-4" />
-                Ingresando...
+                Verificando datos…
               </span>
             ) : (
               'Iniciar sesión'

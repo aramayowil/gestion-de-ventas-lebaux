@@ -359,3 +359,17 @@
     display: none; /* Chrome/Safari/Android WebView */
   }
 }
+
+/* Login se desvanece antes de montar Home, que ya tiene su propia secuencia
+ * de entrada. La navegación espera el final de esta animación. */
+.login-salida {
+  pointer-events: none;
+  animation: login-salida 180ms ease-in forwards;
+}
+
+@keyframes login-salida {
+  to {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+}

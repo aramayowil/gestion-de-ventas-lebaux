@@ -16,6 +16,7 @@ interface AuthStoreState {
   session: { user: { id: string; email?: string } } | null
   /** Usuario de negocio (public.users). */
   currentUser: User | null
+  /** Solo representa la recuperación de la sesión al arrancar la app. */
   loading: boolean
   error: string | null
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
@@ -82,13 +83,15 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
   },
 
   login: async (email, password) => {
-    set({ loading: true, error: null })
+    // La espera del login es local a LoginPage. Mantener loading reservado para
+    // el arranque evita reemplazar el formulario por el spinner global.
+    set({ error: null })
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
     if (error) {
-      set({ loading: false, error: error.message })
+      set({ error: error.message })
       return { ok: false, error: error.message }
     }
     set({ session: { user: data.user } })

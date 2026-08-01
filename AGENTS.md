@@ -204,18 +204,19 @@ Notas importantes:
 ### 4.1 — Stack
 
 - **Vite + React 19 + TypeScript**
-- **React Router v6** (`HashRouter` — no `BrowserRouter`; ver 4.4)
+- **React Router v6** (`BrowserRouter`; el hosting debe redirigir rutas a
+  `index.html`, ver 4.4)
 - **Tailwind CSS v4** (config inline en `index.css`, no
   `tailwind.config.js` — así funciona v4)
 - **shadcn/ui** como base de componentes (`components/ui/`), con
   bastantes agregados propios sobre esa base
 - **Supabase** (Postgres + Auth) como backend — **no es un sistema
   100% cliente/localStorage**, a pesar de lo que puedan sugerir
-  comentarios viejos en el código (ver 4.6)
+  comentarios viejos en el código (ver 4.7)
 - **TanStack Query (`@tanstack/react-query`)** para leer/escribir datos
   del servidor, con cache automático
 - **Zustand** — pero *solo* para estado de UI/sesión, no para datos de
-  negocio (ver 4.5)
+  negocio (ver 4.6)
 - **`@react-pdf/renderer`** para generar los PDFs de presupuesto,
   comprobante y recibo, importado dinámicamente (lazy) para no inflar
   el bundle inicial
@@ -224,7 +225,7 @@ Notas importantes:
 
 ```
 main.tsx
-  └─ App.tsx           ← inicializa auth (Supabase), ThemeProvider, HashRouter, Toaster
+  └─ App.tsx           ← inicializa auth (Supabase), ThemeProvider, BrowserRouter, Toaster
        └─ routes/routes.tsx (<Rutas />)
             ├─ /login                     → LoginPage (pública, sin layout)
             └─ todo lo demás requiere <RequireAuth>
@@ -261,17 +262,83 @@ Si tenés que agregar una pantalla nueva: la página renderiza su propio
 la ruta se agrega en `routes.tsx` dentro o fuera de `<HubLayout>` según
 corresponda.
 
-### 4.4 — Por qué `HashRouter` y no `BrowserRouter`
+### 4.4 — `BrowserRouter` y requisito del hosting
 
-El proyecto usa URLs con `#` (`HashRouter`) en vez de rutas "limpias"
-(`BrowserRouter`). Esto es porque no hay backend propio sirviendo el
-`index.html` para cualquier ruta — el hosting es estático, y con
-`BrowserRouter` cualquier refresh en `/clientes/123` rompería (404) a
-menos que el hosting esté configurado con un rewrite. `HashRouter`
-evita ese problema sin depender de configuración extra del servidor.
-No lo cambies sin resolver ese problema de hosting primero.
+El código actual usa `BrowserRouter`, por lo que las URLs son limpias
+(sin `#`). Esto exige que el hosting responda con `index.html` ante
+cualquier ruta de la SPA: un refresh directo en `/clientes/123` debe
+hacer rewrite a la aplicación y no devolver 404. Antes de desplegar en
+un hosting nuevo, verificá esa regla. No cambies a `HashRouter` para
+tapar una configuración faltante sin evaluar antes el impacto sobre
+URLs existentes y enlaces compartidos.
 
-### 4.5 — Zustand: solo para 2 cosas, no para datos de negocio
+La opción `viewTransition` de `navigate()` no controla las
+transiciones imperativas con la combinación actual de `BrowserRouter`
+declarativo y React Router v6. Por eso el paso Login → Home usa una
+animación propia documentada en la sección 4.5.
+
+### 4.5 — Login, estados de espera y sesión persistente
+
+El acceso combina `pages/LoginPage.tsx`, `lib/stores/auth-store.ts`,
+`lib/supabase-client.ts`, `App.tsx` y `RequireAuth`. Hay dos
+estados de carga distintos y **no deben volver a mezclarse**:
+
+- **`auth-store.loading` es solo para recuperar la sesión al arrancar.**
+  Mientras vale `true`, `App.tsx` muestra el spinner global porque
+  todavía no se sabe si corresponde renderizar Login o las rutas
+  privadas.
+- **`LoginPage.cargando` es solo para un intento de acceso.** Mantiene
+  el formulario montado, deshabilita email, contraseña, mostrar/ocultar
+  contraseña y el botón de envío, y muestra `Verificando datos…` con
+  un `Spinner`. El formulario expone además `aria-busy`.
+- El botón de mostrar/ocultar contraseña mantiene un target táctil de 44 px
+  (`size-11`), incluso dentro del campo. El email desactiva autocapitalizado
+  y corrección ortográfica para evitar cambios involuntarios en mobile.
+- `auth-store.login()` **no debe poner el `loading` global en
+  `true`**. Si lo hace, `App.tsx` desmonta Login y reemplaza el
+  feedback local por una pantalla completa de carga.
+- `handleSubmit` corta envíos duplicados antes de consultar, normaliza
+  el email con `.trim()`, traduce errores comunes de Supabase a
+  mensajes en español y recupera los controles ante errores de red.
+  Los errores se anuncian con `role="alert"` y se asocian a ambos
+  campos mediante `aria-describedby`.
+
+Después de un acceso correcto no se navega de golpe. `LoginPage`
+activa `saliendo`, aplica la clase `login-salida` de `index.css` y
+espera su `onAnimationEnd` antes de hacer
+`navigate("/", { replace: true })`. La salida dura 180 ms y se
+encadena con las clases `home-entrada` que ya usa `HomePage`. Si el
+sistema tiene `prefers-reduced-motion: reduce`, se navega
+inmediatamente y sin demora artificial. Si cambiás esta transición,
+probala con el spinner activo: los eventos de animación hijos
+burbujean, por eso el handler comprueba
+`event.target === event.currentTarget`.
+
+La sesión no tiene un cierre automático por inactividad implementado
+en la app. El cliente de Supabase usa `persistSession: true` y
+`autoRefreshToken: true`, de modo que la sesión sobrevive recargas y
+cierres del navegador y renueva el token automáticamente. En la
+práctica permanece abierta hasta que el usuario cierra sesión, el
+backend revoca el refresh token o Supabase aplica una política de
+duración del lado servidor. No prometas una sesión literalmente eterna
+desde el frontend: si se configura un timebox o timeout en Supabase,
+esa política manda.
+
+Al modificar el login, verificá como mínimo:
+
+1. intento válido con red lenta: formulario visible, controles
+   deshabilitados y spinner en el botón;
+2. credenciales inválidas: mensaje en español y formulario nuevamente
+   habilitado;
+3. error de red: no queda atrapado en estado de carga;
+4. doble Enter/toque: se realiza un solo intento;
+5. acceso correcto: salida suave y llegada a Home sin historial hacia
+   Login;
+6. `prefers-reduced-motion`: navegación inmediata;
+7. recarga y reapertura del navegador: la sesión se recupera sin pedir
+   credenciales mientras siga siendo válida.
+
+### 4.6 — Zustand: solo para 2 cosas, no para datos de negocio
 
 Hay exactamente dos stores en `src/lib/stores/`:
 
@@ -287,20 +354,17 @@ Hay exactamente dos stores en `src/lib/stores/`:
 usuarios) se lee/escribe con TanStack Query en `hooks/queries.ts`, no
 con Zustand.** Si te encontrás por escribir un store de Zustand nuevo
 para algo que viene de la base de datos, pará: eso va en
-`hooks/queries.ts` siguiendo el patrón que ya existe ahí (ver 4.7).
+`hooks/queries.ts` siguiendo el patrón que ya existe ahí (ver 4.8).
 
-### 4.6 — Ojo con comentarios legacy que ya no aplican
+### 4.7 — Ojo con comentarios legacy que ya no aplican
 
 El código tiene rastros de una etapa anterior (localStorage puro, sin
 Supabase). Dos ejemplos concretos para no confundirte:
 
-- `hooks/use-async-data.tsx` tiene un comentario que dice "Pensado para
-  usarse cuando migremos de localStorage a Supabase" — esa migración
-  **ya pasó**. Hoy de ese archivo solo se usa el componente `Spinner`
-  (en `App.tsx` y `LoginPage.tsx`); `useAsyncData` y `AsyncBoundary`
-  quedaron sin uso. Si necesitás un spinner, importalo de ahí; no
-  reintroduzcas `useAsyncData` para nada nuevo — para eso ya está
-  TanStack Query.
+- `hooks/use-async-data.tsx` conserva únicamente el componente visual
+  `Spinner` (usado en `App.tsx` y `LoginPage.tsx`). El hook legacy
+  `useAsyncData` y `AsyncBoundary` se eliminaron porque la migración a
+  Supabase ya ocurrió. Si necesitás cargar datos nuevos, usá TanStack Query.
 - El `README.md` del proyecto describe una versión más vieja del
   sistema (menciona 5 pantallas en vez de 6, un `AppFooter` que ya no
   existe, una `BottomTabBar` que se "oculta al escrolear" cuando hoy es
@@ -309,7 +373,7 @@ Supabase). Dos ejemplos concretos para no confundirte:
   ves en el código, **el código manda** — y de paso, si tenés tiempo,
   actualizá el README.
 
-### 4.7 — Patrón de `hooks/queries.ts`
+### 4.8 — Patrón de `hooks/queries.ts`
 
 Todos los hooks de datos siguen la misma convención, entidad por
 entidad:
@@ -337,7 +401,7 @@ Si agregás una entidad nueva: replicá este patrón completo (mapper +
 separado por entidad — así todo el código de acceso a datos queda en
 un solo lugar fácil de auditar.
 
-### 4.8 — Roles y permisos
+### 4.9 — Roles y permisos
 
 Hay dos roles (`Rol` en `types.ts`): `admin` y `vendedor`.
 
@@ -351,7 +415,7 @@ Hay dos roles (`Rol` en `types.ts`): `admin` y `vendedor`.
   (`GestionVendedoresPage`), protegida con `<RequireAdmin>` (redirige a
   `/` si el usuario logueado no es admin).
 
-### 4.9 — Base de datos
+### 4.10 — Base de datos
 
 El schema completo de Postgres está en `src/sql/schema.sql` (9 tablas:
 `users`, `clientes`, `ajustes`, `obras`, `tipologias`, `pagos`,
@@ -375,7 +439,7 @@ Supabase y correr `schema.sql` contra él.
 
 ```
 src/
-├── App.tsx                  # arranque: auth init, ThemeProvider, HashRouter, Toaster
+├── App.tsx                  # arranque: auth init, ThemeProvider, BrowserRouter, Toaster
 ├── main.tsx
 ├── index.css                 # Tailwind v4 (config inline) + tokens de color (oklch) + fuentes
 ├── vite-env.d.ts
@@ -434,7 +498,7 @@ src/
 │   ├── AgendaFabricaPage.tsx
 │   ├── GestionVendedoresPage.tsx   # solo admin
 │   ├── PagosObraPage.tsx
-│   ├── LoginPage.tsx
+│   ├── LoginPage.tsx              # acceso, espera local y transición de salida a Home
 │   └── obra-form/              # el formulario más grande y complejo del sistema
 │       ├── index.ts               # re-export
 │       ├── ObraForm.tsx           # orquestación / layout (acordeón en mobile, todo visible en desktop)
@@ -445,23 +509,23 @@ src/
 │       └── FinalizarVentaModal.tsx
 │
 ├── hooks/
-│   ├── queries.ts                        # TODOS los hooks de datos (ver 4.7)
+│   ├── queries.ts                        # TODOS los hooks de datos (ver 4.8)
 │   ├── use-is-desktop.ts                 # único punto de verdad mobile/desktop (ver 1.2)
 │   ├── use-visual-viewport-top.ts        # reposiciona Dialog/AlertDialog sobre el teclado virtual
 │   ├── use-auto-rechazo-presupuestos.ts  # se ejecuta en cada <RequireAuth>
 │   ├── use-nuevo-cliente-modal.tsx       # modal "nuevo cliente" compartido (Home + Clientes)
-│   └── use-async-data.tsx                # legacy — solo el Spinner sigue en uso (ver 4.6)
+│   └── use-async-data.tsx                # componente Spinner compartido (ver 4.7)
 │
 ├── lib/
 │   ├── types.ts               # el modelo de datos — LEER ESTO PRIMERO
 │   ├── constants.ts            # catálogos (líneas, colores, formas de pago, defaults)
 │   ├── obra-totales.ts         # TODOS los cálculos de plata + helpers de WhatsApp/fecha
 │   ├── storage-keys.ts         # claves de localStorage (solo para borradores)
-│   ├── supabase-client.ts      # cliente de Supabase (falla fuerte si faltan env vars)
+│   ├── supabase-client.ts      # cliente Supabase + persistencia/refresh de sesión
 │   ├── pdf-generate.tsx
 │   ├── utils.ts                # cn() — merge de clases Tailwind
 │   └── stores/
-│       ├── auth-store.ts        # sesión + usuario de negocio (Zustand)
+│       ├── auth-store.ts        # sesión, perfil e inicialización global (Zustand)
 │       └── borrador-store.ts    # drafts de formularios de obra (Zustand + localStorage)
 │
 └── sql/
