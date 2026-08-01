@@ -13,7 +13,6 @@ import { useSearchParams } from 'react-router-dom'
 import {
   Plus,
   Search,
-  ChevronRight,
   PackageOpen,
   UserPlus,
   Users,
@@ -23,7 +22,6 @@ import {
   CheckCircle2,
   ArrowUpDown,
   Clock,
-  DollarSign,
   AlertTriangle,
   Share2,
   UserCog,
@@ -44,7 +42,6 @@ import { useNuevoClienteModal } from '@/hooks/use-nuevo-cliente-modal'
 import {
   calcularTotalesObra,
   estadoDeSaldo,
-  formatMoney,
   formatWhatsApp,
   normalizarTexto,
   normalizarWhatsApp,
@@ -454,36 +451,35 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
       title="Clientes"
       subtitle={`${clientes.length} ${clientes.length === 1 ? 'cliente' : 'clientes'}`}
       onBack={onVolver}
-      onNuevoCliente={abrirNuevoCliente}
       mainClassName="flex-1 min-h-0 overflow-y-auto max-w-5xl w-full mx-auto px-4 py-5 space-y-4 pb-20"
       withBottomBar
     >
       {/* Buscador + tabs: sticky arriba del main scrolleable, estilo WhatsApp */}
       <div className="sticky -top-5 z-10 -mx-4 px-4 pt-5 -mb-1 bg-background space-y-3">
-        <div className="relative">
-          <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none"
-            aria-hidden="true"
-          />
-          <Input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre o WhatsApp…"
-            aria-label="Buscar clientes por nombre o WhatsApp"
-            className="h-11 pl-10 text-base sm:text-sm"
-            autoComplete="off"
-          />
+        <div className="rounded-2xl border border-border/70 bg-card/80 p-3 shadow-sm">
+          <div className="relative">
+            <Search
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none"
+              aria-hidden="true"
+            />
+            <Input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre o WhatsApp…"
+              aria-label="Buscar clientes por nombre o WhatsApp"
+              className="h-11 pl-10 text-base sm:text-sm"
+              autoComplete="off"
+            />
+          </div>
         </div>
 
-        {/* Selector de vendedor: solo para admin. Combina con las tabs
-              de estado de abajo (ej. "Vendedor1" + "Con deuda"). */}
         {esAdmin && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                className="h-9 w-full justify-start gap-2 px-3 text-xs sm:text-sm"
                 aria-label="Filtrar clientes por vendedor"
-                className="flex items-center gap-2 h-9 w-full rounded-lg border border-border/60 bg-card/60 px-3 text-xs sm:text-sm text-foreground hover:bg-elevated transition-colors"
               >
                 <UserCog
                   className="size-4 text-muted-foreground shrink-0"
@@ -492,7 +488,7 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
                 <span className="flex-1 min-w-0 text-left truncate">
                   {filtroVendedorLabel}
                 </span>
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
               <DropdownMenuItem
@@ -555,7 +551,6 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
           </DropdownMenu>
         )}
 
-        {/* Tabs estilo WhatsApp: Todos / Con deuda / Ventas / Presupuestos / Saldados */}
         <div
           className="flex gap-2 overflow-x-auto pb-3 scrollbar-none"
           role="tablist"
@@ -565,18 +560,20 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
             const activo = tab === id
             const count = conteos[id]
             return (
-              <button
+              <Button
                 key={id}
+                variant={activo ? 'default' : 'outline'}
+                size="sm"
                 role="tab"
                 aria-selected={activo}
                 onClick={() => setTab(id)}
                 className={cn(
-                  'shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-colors whitespace-nowrap',
+                  'shrink-0 rounded-full px-3.5 py-2 text-xs font-medium whitespace-nowrap',
                   activo
                     ? id === 'deuda'
-                      ? 'bg-destructive/15 border-destructive/40 text-destructive'
-                      : 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-card/60 border-border/60 text-muted-foreground hover:bg-elevated hover:text-foreground',
+                      ? 'bg-destructive/15 text-destructive border-destructive/40 hover:bg-destructive/20 hover:text-destructive'
+                      : ''
+                    : 'bg-card/60 text-muted-foreground hover:bg-elevated hover:text-foreground',
                 )}
               >
                 <Icon className="size-3.5" aria-hidden="true" />
@@ -591,34 +588,39 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
                     {count}
                   </span>
                 )}
-              </button>
+              </Button>
             )
           })}
         </div>
       </div>
 
       {/* Lista */}
-      <section>
-        <div className="flex items-center justify-between mb-3 gap-2">
-          <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase shrink-0">
-            Clientes
-          </h2>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs text-muted-foreground money shrink-0">
-              {filtrados.length} de {clientes.length}
-            </span>
+      <section className="mt-2 rounded-2xl border border-border/70 bg-card/70 p-3 shadow-sm sm:p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground/80">
+              Clientes
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {filtrados.length}{' '}
+              {filtrados.length === 1 ? 'visible' : 'visibles'} ·{' '}
+              {clientes.length} total
+            </p>
+          </div>
+          <div className="flex min-w-0 items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   aria-label="Ordenar clientes"
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-elevated transition-colors shrink-0"
+                  className="h-8 gap-1.5 px-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
                 >
                   <ArrowUpDown className="size-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">
                     {ORDENES.find((o) => o.id === ordenTab)?.label}
                   </span>
-                </button>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {ORDENES.map((o) => (
@@ -646,7 +648,7 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
         ) : clientes.length === 0 ? (
           <EmptyState onNuevo={abrirNuevoCliente} />
         ) : filtrados.length === 0 ? (
-          <p className="text-center text-sm text-muted-foreground py-12">
+          <p className="py-12 text-center text-sm leading-6 text-muted-foreground">
             {tab !== 'todos' || filtroVendedor !== FILTRO_VENDEDOR_TODOS
               ? `Ningún cliente en "${TABS.find((t) => t.id === tab)?.label}"${
                   filtroVendedor !== FILTRO_VENDEDOR_TODOS
@@ -664,9 +666,6 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
                 prefijoWhatsApp={prefijoWhatsApp}
                 esAdmin={esAdmin}
                 onVerCliente={onVerCliente}
-                onRegistrarPago={(obra, pagosObra) =>
-                  setPagoRapido({ obra, pagos: pagosObra })
-                }
               />
             ))}
           </div>
@@ -690,51 +689,36 @@ export function ClientesHome({ onVerCliente, onVolver }: Props) {
  * que con barras genéricas. */
 function ClienteCardSkeleton() {
   return (
-    <div className="flex items-center gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-card/60">
-      <Skeleton className="size-12 rounded-full shrink-0" />
-      <div className="flex-1 min-w-0 space-y-2">
+    <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/60 p-3 sm:p-4">
+      <Skeleton className="size-12 shrink-0 rounded-full" />
+      <div className="min-w-0 flex-1 space-y-2">
         <div className="flex items-center gap-2">
           <Skeleton className="h-4 w-32 rounded" />
           <Skeleton className="h-4 w-16 rounded-full" />
         </div>
         <Skeleton className="h-3 w-40 rounded" />
       </div>
-      <Skeleton className="size-4 rounded shrink-0" />
+      <Skeleton className="size-4 shrink-0 rounded" />
     </div>
   )
 }
 
 /**
- * ClienteCard — card de cliente con swipe-to-action estilo WhatsApp.
+ * ClienteCard — tarjeta compacta para la lista de clientes.
  *
- * Deslizar hacia la izquierda revela dos acciones rápidas detrás de la
- * card: WhatsApp (abre el chat directo) y Registrar pago (si el cliente
- * tiene una única obra con saldo pendiente — con más de una no se
- * adivina cuál cobrar, esa acción no aparece y hay que entrar al
- * detalle). Tocar la card sin deslizar sigue llevando al detalle, igual
- * que antes.
- *
- * Implementado con Pointer Events nativos (sin librería de gestos): se
- * seguía el criterio del resto del proyecto de no sumar dependencias
- * para algo que se resuelve con ~40 líneas. El gesto solo se activa si
- * el movimiento es predominantemente horizontal, para no robarle el
- * scroll vertical a la lista.
+ * Mantiene el acceso directo al detalle del cliente y, cuando aplica,
+ * refleja visualmente si tiene deuda o presupuesto pendiente.
  */
-const SWIPE_ACTION_WIDTH = 72 // px por acción revelada
-const SWIPE_OPEN_THRESHOLD = 56 // px arrastrados para quedar "abierto"
-
 function ClienteCard({
   resumen,
   prefijoWhatsApp,
   esAdmin,
   onVerCliente,
-  onRegistrarPago,
 }: {
   resumen: ResumenCliente
   prefijoWhatsApp: string
   esAdmin: boolean
   onVerCliente: (clienteId: string) => void
-  onRegistrarPago: (obra: Obra, pagosObra: Pago[]) => void
 }) {
   const {
     cliente,
@@ -743,13 +727,9 @@ function ClienteCard({
     estadoPeor,
     tienePresupuestoPendiente,
     diasVencimientoMin,
-    obraParaPago,
-    pagosObraParaPago,
   } = resumen
 
   const tieneWhatsApp = normalizarWhatsApp(cliente.telefonoWhatsApp).length > 0
-  const accionesDisponibles = (tieneWhatsApp ? 1 : 0) + (obraParaPago ? 1 : 0)
-  const maxOffset = SWIPE_ACTION_WIDTH * accionesDisponibles
   const iniciales =
     cliente.nombre
       .split(/\s+/)
@@ -758,132 +738,73 @@ function ClienteCard({
       .map((palabra) => palabra[0]?.toUpperCase() ?? '')
       .join('') || 'C'
 
-  const [offset, setOffset] = React.useState(0)
-  const drag = React.useRef<{
-    startX: number
-    startY: number
-    startOffset: number
-    axis: 'none' | 'x' | 'y'
-  } | null>(null)
-
-  const cerrar = React.useCallback(() => setOffset(0), [])
-
-  function handlePointerDown(e: React.PointerEvent) {
-    if (accionesDisponibles === 0) return
-    drag.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startOffset: offset,
-      axis: 'none',
-    }
-  }
-
-  function handlePointerMove(e: React.PointerEvent) {
-    if (!drag.current) return
-    const dx = e.clientX - drag.current.startX
-    const dy = e.clientY - drag.current.startY
-
-    if (drag.current.axis === 'none') {
-      // Recién determinamos el eje del gesto cuando se movió lo suficiente,
-      // para no confundir un tap con un swipe.
-      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
-      drag.current.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
-    }
-    if (drag.current.axis !== 'x') return
-
-    e.currentTarget.setPointerCapture(e.pointerId)
-    const next = drag.current.startOffset - dx
-    setOffset(Math.min(maxOffset, Math.max(0, next)))
-  }
-
-  function handlePointerUp() {
-    if (!drag.current) return
-    if (drag.current.axis === 'x') {
-      setOffset((current) => (current > SWIPE_OPEN_THRESHOLD ? maxOffset : 0))
-    }
-    drag.current = null
-  }
+  const tonoAccento =
+    estadoPeor === 'debe'
+      ? 'bg-destructive'
+      : estadoPeor === 'pagado'
+        ? 'bg-emerald-500'
+        : 'bg-amber-500'
 
   return (
-    <div className="relative overflow-hidden rounded-xl">
-      {/* Acciones reveladas detrás de la card */}
-      {accionesDisponibles > 0 && (
-        <div className="absolute inset-y-0 right-0 flex">
-          {obraParaPago && (
-            <button
-              type="button"
-              onClick={() => {
-                cerrar()
-                onRegistrarPago(obraParaPago, pagosObraParaPago)
-              }}
-              aria-label={`Registrar pago de ${cliente.nombre}`}
-              className="flex flex-col items-center justify-center gap-1 bg-primary text-primary-foreground transition-colors hover:brightness-110"
-              style={{ width: SWIPE_ACTION_WIDTH }}
-            >
-              <DollarSign className="size-5" aria-hidden="true" />
-              <span className="text-[10px] font-medium">Cobrar</span>
-            </button>
-          )}
-          {tieneWhatsApp && (
-            <button
-              type="button"
-              onClick={() => {
-                cerrar()
-                const numero =
-                  prefijoWhatsApp + normalizarWhatsApp(cliente.telefonoWhatsApp)
-                window.open(
-                  `https://wa.me/${numero}`,
-                  '_blank',
-                  'noopener,noreferrer',
-                )
-              }}
-              aria-label={`Abrir WhatsApp de ${cliente.nombre}`}
-              className="flex flex-col items-center justify-center gap-1 bg-[#25D366] text-white transition-colors hover:brightness-110"
-              style={{ width: SWIPE_ACTION_WIDTH }}
-            >
-              <WhatsAppIcon className="size-5" />
-              <span className="text-[10px] font-medium">WhatsApp</span>
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Card, desplazada por el swipe */}
-      <button
-        onClick={() => (offset > 0 ? cerrar() : onVerCliente(cliente.id))}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className="relative text-left w-full rounded-xl active:scale-[0.99] transition-transform touch-pan-y"
-        style={{
-          transform: `translateX(${-offset}px)`,
-          transition: drag.current ? 'none' : 'transform 200ms ease-out',
-        }}
+    <div className="rounded-md border border-border/70 bg-card/70 p-px shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
+      <Button
+        variant="ghost"
+        onClick={() => onVerCliente(cliente.id)}
+        className="group relative flex h-auto w-full items-start justify-start overflow-hidden rounded-[calc(0.75rem-1px)] bg-background/90 p-0 text-left transition-all hover:bg-card/90"
       >
         <div
           className={cn(
-            'flex items-center gap-3 p-3 sm:p-4 rounded-xl border border-border/80 bg-card shadow-sm transition-all',
-            offset > 0
-              ? 'shadow-none opacity-100'
-              : 'hover:border-primary/40 hover:bg-card hover:shadow-md',
+            'ml-3 h-10 w-1 shrink-0 rounded-full self-center',
+            tonoAccento,
           )}
-        >
-          <Avatar className="size-12 border border-border/60 bg-muted/70 text-sm font-semibold text-foreground">
+        />
+        <div className="flex w-full items-center gap-3 p-3 sm:p-4">
+          <Avatar className="size-12 shrink-0 border border-border/60 bg-muted/70 text-sm font-semibold text-foreground">
             <AvatarFallback>{iniciales}</AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold truncate font-display">
-                {cliente.nombre}
-              </span>
-              <EstadoBadge
-                estado={estadoPeor}
-                saldoPendiente={saldoTotal}
-                size="sm"
-              />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="truncate text-sm font-semibold leading-5 text-foreground sm:text-[15px]">
+                    {cliente.nombre}
+                  </span>
+                  <EstadoBadge
+                    estado={estadoPeor}
+                    saldoPendiente={saldoTotal}
+                    size="sm"
+                  />
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2.5 text-[13px] leading-5 text-muted-foreground">
+                  {tieneWhatsApp ? (
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      <WhatsAppIcon className="size-4 shrink-0" />
+                      <span className="truncate">
+                        {formatWhatsApp(
+                          cliente.telefonoWhatsApp,
+                          prefijoWhatsApp,
+                        ) || '—'}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex min-w-0 items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                      <AlertTriangle
+                        className="size-4 shrink-0"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">Sin número</span>
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1.5">
+                    <PackageOpen className="size-3.5" aria-hidden="true" />
+                    {cantidadObras} {cantidadObras === 1 ? 'obra' : 'obras'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
               {cliente.isMayorista && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                   <Store className="size-3" aria-hidden="true" />
                   Mayorista
                 </span>
@@ -892,53 +813,16 @@ function ClienteCard({
                 diasVencimientoMin !== undefined && (
                   <VencimientoBadge dias={diasVencimientoMin} />
                 )}
-            </div>
-            <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-              {tieneWhatsApp ? (
-                <span className="inline-flex items-center gap-1 min-w-0">
-                  <WhatsAppIcon className="size-3.5 shrink-0" />
-                  <span className="truncate">
-                    {formatWhatsApp(
-                      cliente.telefonoWhatsApp,
-                      prefijoWhatsApp,
-                    ) || '—'}
-                  </span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 min-w-0 text-amber-600 dark:text-amber-400">
-                  <AlertTriangle
-                    className="size-3 shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span className="truncate">Sin número</span>
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1">
-                <PackageOpen className="size-3" aria-hidden="true" />
-                {cantidadObras} {cantidadObras === 1 ? 'obra' : 'obras'}
-              </span>
               {esAdmin && cliente.compartidoCon.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-primary">
+                <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary">
                   <Share2 className="size-3 shrink-0" aria-hidden="true" />
                   Compartido
                 </span>
               )}
             </div>
-            {saldoTotal > 0 && (
-              <p className="mt-1.5 money text-base font-semibold text-destructive">
-                ${formatMoney(saldoTotal)}
-                <span className="ml-1 text-[11px] font-normal text-muted-foreground uppercase tracking-wider">
-                  saldo
-                </span>
-              </p>
-            )}
           </div>
-          <ChevronRight
-            className="size-4 text-muted-foreground shrink-0"
-            aria-hidden="true"
-          />
         </div>
-      </button>
+      </Button>
     </div>
   )
 }
@@ -972,7 +856,7 @@ function VencimientoBadge({ dias }: { dias: number }) {
 function EmptyState({ onNuevo }: { onNuevo: () => void }) {
   return (
     <div className="text-center py-16 px-4">
-      <div className="mx-auto size-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20 flex items-center justify-center mb-5">
+      <div className="mx-auto mb-5 flex size-20 items-center justify-center rounded-2xl bg-linear-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
         <UserPlus className="size-9 text-primary" aria-hidden="true" />
       </div>
       <h3 className="font-display text-xl font-semibold mb-2">
