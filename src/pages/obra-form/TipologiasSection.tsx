@@ -3,37 +3,40 @@
  *
  * Sub-sección "Detalle de aberturas" del form de obra.
  *
- * Rediseño: al cargar una abertura, lo único que importa completar rápido
- * es la descripción, la cantidad y el precio unitario. Línea y color son
- * datos reales pero secundarios en el momento de tipear — antes se
- * mostraban los 4 campos + el subtotal siempre abiertos, lo que hacía que
- * cada ítem ocupara mucho espacio y compitiera por atención. Ahora línea
- * y color quedan colapsados detrás de un disclosure chico (con su valor
- * actual visible como preview), y el subtotal se muestra como un chip
- * discreto en esa misma línea en vez de un renglón propio.
+ * Cada abertura se presenta como una ficha con tres zonas claras: encabezado
+ * y acciones, campos editables, y subtotal. En móvil, línea y color quedan
+ * detrás de una fila-resumen táctil; en desktop permanecen visibles. Esta
+ * jerarquía deja la descripción con todo el ancho y evita que las acciones
+ * secundarias compitan con los campos que el vendedor completa en obra.
  *
  * Mejoras de esta iteración:
  *   · Duplicar ítem: para aberturas repetidas con alguna variante, evita
- *     recargar todo desde cero (botón junto al de eliminar).
+ *     recargar todo desde cero (vive junto a eliminar en el menú contextual).
  *   · Confirmación al eliminar: solo si el ítem ya tiene contenido
  *     cargado (descripción o precio) — un ítem recién agregado y vacío
  *     se borra directo, sin fricción.
  *   · Autocompletado de descripción: sugiere descripciones ya tipeadas
  *     por este vendedor en este dispositivo (descripciones-store), para
  *     no re-escribir textos largos que se repiten seguido.
- *   · Aviso de campo incompleto (pasivo, sin texto ni toasts): si al
- *     usuario se le olvida uno de los dos campos (descripción o precio)
- *     habiendo cargado el otro, ese input puntual se marca con un borde
- *     rojo sutil — un ítem recién creado con todo vacío no se marca en
- *     rojo, porque ahí no hay nada "olvidado" todavía. La card en sí no
- *     cambia de estilo, solo el input que falta.
+ *   · Aviso de campo incompleto: si al usuario se le olvida descripción o
+ *     precio habiendo cargado el otro, el campo se marca y aparece una ayuda
+ *     breve. Un ítem totalmente vacío queda neutro para no generar ruido.
  *   · Desktop: línea y color quedan visibles por defecto (hay espacio
  *     de sobra), en vez del disclosure colapsado que sí tiene sentido
  *     en móvil.
  */
 
 import * as React from 'react'
-import { Plus, Minus, Trash2, Copy, ChevronDown } from 'lucide-react'
+import {
+  Plus,
+  Minus,
+  Trash2,
+  Copy,
+  ChevronDown,
+  MoreVertical,
+  Check,
+  Pencil,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Label } from '@/components/ui/label'
@@ -55,6 +58,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { formatMoney, totalTipologia, desglosarIvaItem } from '@/lib/obra-totales'
 import type { LineaAbertura, Obra } from '@/lib/types'
 import { COLORES, LINEAS } from '@/lib/constants'
@@ -192,6 +202,7 @@ function TipologiaRow({
   const { faltaDescripcion, faltaPrecio } = camposFaltantes(tipologia)
   const mostrarErrorDescripcion = faltaDescripcion && !faltaPrecio
   const mostrarErrorPrecio = faltaPrecio && !faltaDescripcion
+  const itemCompleto = !faltaDescripcion && !faltaPrecio
 
   function pedirEliminar() {
     if (tieneContenido) {
@@ -202,46 +213,51 @@ function TipologiaRow({
   }
 
   return (
-    <div className="rounded-xl border border-border/60 p-3 space-y-2.5 bg-card/60 backdrop-blur-sm">
-      <div className="flex items-start gap-2">
-        <span
-          className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/20 text-xs font-bold mt-1"
-          aria-hidden="true"
-        >
-          {index + 1}
-        </span>
-        <DescripcionInput
-          value={tipologia.descripcion}
-          onChange={(v) => onChange({ descripcion: v })}
-          error={mostrarErrorDescripcion}
-        />
-        <div className="flex shrink-0 flex-col gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-foreground hover:bg-elevated size-11"
-            onClick={onDuplicate}
-            type="button"
-            aria-label={`Duplicar ítem #${index + 1}`}
-            title="Duplicar ítem"
-          >
-            <Copy className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10 size-11"
-            onClick={pedirEliminar}
-            type="button"
-            aria-label={`Quitar ítem #${index + 1}`}
-          >
-            <Trash2 className="size-4" />
-          </Button>
+    <div className="overflow-hidden rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm">
+      <div className="flex min-h-12 items-center justify-between border-b border-border/50 px-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            Abertura {String(index + 1).padStart(2, '0')}
+          </span>
+          {itemCompleto && (
+            <span className="flex size-5 items-center justify-center rounded-full bg-success/15 text-success" title="Ítem completo">
+              <Check className="size-3" aria-hidden="true" />
+              <span className="sr-only">Ítem completo</span>
+            </span>
+          )}
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-11 text-muted-foreground" type="button" aria-label={`Acciones de abertura ${index + 1}`}>
+              <MoreVertical className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44">
+            <DropdownMenuItem className="min-h-11" onSelect={onDuplicate}>
+              <Copy />
+              Duplicar abertura
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="min-h-11 text-destructive focus:text-destructive" onSelect={pedirEliminar}>
+              <Trash2 />
+              Quitar abertura
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
+      <div className="space-y-3 p-3">
+        <div className="grid gap-1">
+          <Label className="text-xs">Descripción</Label>
+          <DescripcionInput
+            value={tipologia.descripcion}
+            onChange={(v) => onChange({ descripcion: v })}
+            error={mostrarErrorDescripcion}
+          />
+        </div>
+
       {/* Solo lo esencial para completar el ítem: cantidad y precio */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2">
         <div className="grid gap-1">
           <Label className="text-xs">Cantidad</Label>
           <div className="flex h-11 items-stretch overflow-hidden rounded-lg border border-input bg-card/60">
@@ -271,25 +287,25 @@ function TipologiaRow({
           </div>
         </div>
         <div className="grid gap-1">
-          <Label className="text-xs">P. unitario</Label>
+          <Label className="text-xs">Precio unitario</Label>
           <PrecioUnitarioInput
             value={tipologia.precioUnitario}
             onChange={(v) => onChange({ precioUnitario: v })}
             error={mostrarErrorPrecio}
           />
-          {desglose && tipologia.cantidad > 0 && (
-            <p className="text-[11px] text-muted-foreground leading-tight">
-              Con IVA: ${formatMoney(desglose.totalAjustado / tipologia.cantidad)}
-            </p>
-          )}
         </div>
       </div>
+
+      {(mostrarErrorDescripcion || mostrarErrorPrecio) && (
+        <p className="text-xs text-destructive">
+          Completá {mostrarErrorDescripcion ? 'la descripción' : 'el precio unitario'} para terminar esta abertura.
+        </p>
+      )}
 
       {/* Desktop: línea y color siempre visibles (hay espacio de sobra).
           Móvil: disclosure colapsado por defecto + subtotal chip. */}
       {isDesktop ? (
-        <div className="flex items-end justify-between gap-3 pt-0.5">
-          <div className="grid flex-1 grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2">
             <div className="grid gap-1">
               <Label className="text-xs">Línea</Label>
               <Select
@@ -326,45 +342,32 @@ function TipologiaRow({
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          {subtotal > 0 && (
-            <span
-              className="shrink-0 rounded-full bg-muted/50 px-2.5 py-1 text-xs font-medium tabular-nums money text-foreground/80"
-              title={desglose ? `Con IVA discriminado (${Math.round(ivaInfo!.ivaBasePct * 1000) / 10}%)` : undefined}
-            >
-              ${formatMoney(subtotalAjustado)}
-            </span>
-          )}
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-2 pt-0.5">
-            <button
-              type="button"
-              onClick={() => setDetalleAbierto((v) => !v)}
-              className="flex min-w-0 items-center gap-1 rounded-md py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
+          <button
+            type="button"
+            onClick={() => setDetalleAbierto((v) => !v)}
+            aria-expanded={detalleAbierto}
+            className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/25 px-3 text-left transition-colors hover:bg-elevated/60"
+          >
+            <span className="min-w-0">
+              <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Línea y color
+              </span>
+              <span className="block truncate text-sm font-medium">
+                {tipologia.linea} · {tipologia.color}
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary">
+              <Pencil className="size-3.5" aria-hidden="true" />
+              Editar
               <ChevronDown
-                className={cn('size-3.5 shrink-0 transition-transform', detalleAbierto && 'rotate-180')}
+                className={cn('size-4 transition-transform', detalleAbierto && 'rotate-180')}
                 aria-hidden="true"
               />
-              <span className="shrink-0">Línea y color</span>
-              {!detalleAbierto && (
-                <span className="truncate text-muted-foreground/70">
-                  · {tipologia.linea} / {tipologia.color}
-                </span>
-              )}
-            </button>
-
-            {subtotal > 0 && (
-              <span
-                className="shrink-0 rounded-full bg-muted/50 px-2 py-0.5 text-xs font-medium tabular-nums money text-foreground/80"
-                title={desglose ? `Con IVA discriminado (${Math.round(ivaInfo!.ivaBasePct * 1000) / 10}%)` : undefined}
-              >
-                ${formatMoney(subtotalAjustado)}
-              </span>
-            )}
-          </div>
+            </span>
+          </button>
 
           {detalleAbierto && (
             <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -408,6 +411,24 @@ function TipologiaRow({
           )}
         </>
       )}
+      </div>
+
+      <div className="flex min-h-14 items-center justify-between gap-3 border-t border-border/60 bg-muted/20 px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">Subtotal</p>
+          {desglose && tipologia.cantidad > 0 && (
+            <p className="truncate text-[11px] text-muted-foreground">
+              Incluye ajuste de IVA · ${formatMoney(desglose.totalAjustado / tipologia.cantidad)} c/u
+            </p>
+          )}
+        </div>
+        <span
+          className="shrink-0 text-base font-bold tabular-nums money text-foreground"
+          title={desglose ? `Con IVA discriminado (${Math.round(ivaInfo!.ivaBasePct * 1000) / 10}%)` : undefined}
+        >
+          ${formatMoney(subtotalAjustado)}
+        </span>
+      </div>
 
       <AlertDialog open={confirmarEliminar} onOpenChange={setConfirmarEliminar}>
         <AlertDialogContent>

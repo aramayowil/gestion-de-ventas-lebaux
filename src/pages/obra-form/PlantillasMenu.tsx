@@ -33,7 +33,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { usePlantillasStore, type PlantillaObra } from '@/lib/stores/plantillas-store'
+import {
+  usePlantillasStore,
+  type PlantillaObra,
+} from '@/lib/stores/plantillas-store'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -55,7 +58,8 @@ export function PlantillasMenu({
   const [open, setOpen] = React.useState(false)
   const [modo, setModo] = React.useState<'lista' | 'guardar'>('lista')
   const [nombreNuevo, setNombreNuevo] = React.useState('')
-  const [plantillaAConfirmar, setPlantillaAConfirmar] = React.useState<PlantillaObra | null>(null)
+  const [plantillaAConfirmar, setPlantillaAConfirmar] =
+    React.useState<PlantillaObra | null>(null)
 
   const listar = usePlantillasStore((s) => s.listar)
   const eliminar = usePlantillasStore((s) => s.eliminar)
@@ -90,7 +94,13 @@ export function PlantillasMenu({
 
   return (
     <>
-      <Button variant="outline" size="sm" type="button" onClick={abrir} className={cn(triggerClassName)}>
+      <Button
+        variant="outline"
+        size="sm"
+        type="button"
+        onClick={abrir}
+        className={cn(triggerClassName)}
+      >
         <LayoutTemplate className="size-4" />
         Plantillas
       </Button>
@@ -100,9 +110,12 @@ export function PlantillasMenu({
           {modo === 'lista' ? (
             <>
               <SheetHeader>
-                <SheetTitle className="font-display text-xl">Plantillas</SheetTitle>
+                <SheetTitle className="font-display text-xl">
+                  Plantillas
+                </SheetTitle>
                 <SheetDescription>
-                  Aplicá un set de aberturas guardado, o guardá el actual para reutilizarlo.
+                  Aplicá un set de aberturas guardado, o guardá el actual para
+                  reutilizarlo.
                 </SheetDescription>
               </SheetHeader>
 
@@ -120,7 +133,10 @@ export function PlantillasMenu({
 
                 {plantillas.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground py-8">
-                    <FileStack className="size-6 mx-auto mb-2 text-muted-foreground/60" aria-hidden="true" />
+                    <FileStack
+                      className="size-6 mx-auto mb-2 text-muted-foreground/60"
+                      aria-hidden="true"
+                    />
                     Todavía no guardaste ninguna plantilla.
                   </p>
                 ) : (
@@ -135,9 +151,12 @@ export function PlantillasMenu({
                           onClick={() => elegirPlantilla(p)}
                           className="flex-1 min-w-0 text-left"
                         >
-                          <span className="block font-medium truncate">{p.nombre}</span>
+                          <span className="block font-medium truncate">
+                            {p.nombre}
+                          </span>
                           <span className="block text-xs text-muted-foreground">
-                            {p.tipologias.length} ítem{p.tipologias.length === 1 ? '' : 's'}
+                            {p.tipologias.length} ítem
+                            {p.tipologias.length === 1 ? '' : 's'}
                           </span>
                         </button>
                         <Button
@@ -159,9 +178,12 @@ export function PlantillasMenu({
           ) : (
             <>
               <SheetHeader>
-                <SheetTitle className="font-display text-xl">Guardar plantilla</SheetTitle>
+                <SheetTitle className="font-display text-xl">
+                  Guardar plantilla
+                </SheetTitle>
                 <SheetDescription>
-                  Ponele un nombre para reconocerla después (ej: "Depto 2 amb. tipo A").
+                  Ponele un nombre para reconocerla después (ej: "Depto 2 amb.
+                  tipo A").
                 </SheetDescription>
               </SheetHeader>
 
@@ -175,7 +197,12 @@ export function PlantillasMenu({
                   className="h-11"
                 />
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" type="button" onClick={() => setModo('lista')}>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    type="button"
+                    onClick={() => setModo('lista')}
+                  >
                     Volver
                   </Button>
                   <Button
@@ -193,19 +220,28 @@ export function PlantillasMenu({
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={!!plantillaAConfirmar} onOpenChange={(v) => !v && setPlantillaAConfirmar(null)}>
+      <AlertDialog
+        open={!!plantillaAConfirmar}
+        onOpenChange={(v) => !v && setPlantillaAConfirmar(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Reemplazar aberturas actuales?</AlertDialogTitle>
             <AlertDialogDescription>
-              Ya tenés {cantidadItemsActuales} ítem{cantidadItemsActuales === 1 ? '' : 's'} cargado
-              {cantidadItemsActuales === 1 ? '' : 's'}. Aplicar "{plantillaAConfirmar?.nombre}" los va a
-              reemplazar por los de la plantilla.
+              Ya tenés {cantidadItemsActuales} ítem
+              {cantidadItemsActuales === 1 ? '' : 's'} cargado
+              {cantidadItemsActuales === 1 ? '' : 's'}. Aplicar "
+              {plantillaAConfirmar?.nombre}" los va a reemplazar por los de la
+              plantilla.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => plantillaAConfirmar && aplicar(plantillaAConfirmar)}>
+            <AlertDialogAction
+              onClick={() =>
+                plantillaAConfirmar && aplicar(plantillaAConfirmar)
+              }
+            >
               Sí, reemplazar
             </AlertDialogAction>
           </AlertDialogFooter>
