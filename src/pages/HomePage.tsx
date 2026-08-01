@@ -9,6 +9,7 @@ import * as React from 'react'
 import { useLocation } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useNuevoClienteModal } from '@/hooks/use-nuevo-cliente-modal'
+import { obtenerMensajeMotivacional } from '@/lib/mensajes-motivacionales'
 import { useAuthStore } from '@/lib/stores/auth-store'
 
 interface Props {
@@ -18,8 +19,6 @@ interface Props {
 export function HomePage({ onVerCliente }: Props) {
   const currentUser = useAuthStore((state) => state.currentUser)
   const location = useLocation()
-  const regresoDesdeLogo =
-    (location.state as { desdeLogo?: boolean } | null)?.desdeLogo === true
   const { abrirNuevoCliente, modalNuevoCliente } = useNuevoClienteModal(
     (cliente) => onVerCliente(cliente.id),
   )
@@ -42,7 +41,12 @@ export function HomePage({ onVerCliente }: Props) {
   }, [])
 
   const destinatario =
-    currentUser?.rol === 'vendedor' ? 'Vendedor' : 'Administrador'
+    currentUser?.nombre.trim() ||
+    (currentUser?.rol === 'vendedor' ? 'Vendedor' : 'Administrador')
+  const mensajeMotivacional = React.useMemo(
+    () => obtenerMensajeMotivacional(new Date(), currentUser?.id),
+    [currentUser?.id],
+  )
 
   return (
     <AppLayout
@@ -64,15 +68,9 @@ export function HomePage({ onVerCliente }: Props) {
         </p>
 
         <p className="home-entrada home-entrada-3 mt-16 max-w-md text-lg leading-8 text-muted-foreground sm:text-xl">
-          Cada nuevo día es una oportunidad para avanzar, crecer y hacer la
-          diferencia.
+          {mensajeMotivacional}
         </p>
 
-        {!regresoDesdeLogo && (
-          <p className="home-entrada home-entrada-4 mt-14 font-display text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
-            Comencemos.
-          </p>
-        )}
       </section>
 
       {modalNuevoCliente}

@@ -55,7 +55,7 @@ export function AppHeader({
     currentUser?.rol === 'admin' ? 'Administrador' : 'Vendedor'
 
   function irAlInicioDesdeLogo() {
-    navigate('/', { state: { desdeLogo: true } })
+    navigate('/')
   }
 
   return (

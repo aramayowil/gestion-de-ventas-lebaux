@@ -798,7 +798,7 @@ export function useCrearVendedor() {
       creadoPor: string
     }) => {
       const u = username.trim().toLowerCase()
-      if (!u) throw new Error('El nombre de usuario es obligatorio.')
+      if (!u) throw new Error('El alias visible es obligatorio.')
       if (!password || password.length < 4) {
         throw new Error('La contraseña debe tener al menos 4 caracteres.')
       }
@@ -898,22 +898,26 @@ export function useEliminarVendedor() {
   })
 }
 
-/** Actualiza el username (login display) de un usuario. */
-export function useActualizarUsername() {
+/** Actualiza los datos visibles del perfil; el email de acceso vive en Auth. */
+export function useActualizarPerfil() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
       userId,
+      nuevoNombre,
       nuevoUsername,
     }: {
       userId: string
+      nuevoNombre: string
       nuevoUsername: string
     }) => {
+      const nombre = nuevoNombre.trim()
       const u = nuevoUsername.trim().toLowerCase()
-      if (!u) throw new Error('El nombre de usuario es obligatorio.')
+      if (!nombre) throw new Error('El nombre completo es obligatorio.')
+      if (!u) throw new Error('El alias visible es obligatorio.')
       const { error } = await supabase
         .from('users')
-        .update({ username: u })
+        .update({ nombre, username: u })
         .eq('id', userId)
       if (error) throw new Error(error.message)
     },

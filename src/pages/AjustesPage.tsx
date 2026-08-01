@@ -3,7 +3,7 @@
  *
  * Secciones:
  *   1. Tema (claro/oscuro/sistema) — usa next-themes — cualquier usuario
- *   2. Mi cuenta (cambiar username) — cualquier usuario
+ *   2. Mi cuenta (nombre completo, alias y email de acceso) — cualquier usuario
  *   3. Vendedores (link a /admin/vendedores) — SOLO ADMIN
  *   4. Datos de empresa (usados en PDFs) — SOLO ADMIN
  *   5. Reglas del sistema (días auto-rechazo, prefijo WhatsApp, moneda) — SOLO ADMIN
@@ -51,7 +51,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { useAjustes, useActualizarAjustes, useActualizarUsername, AJUSTES_DEFAULT } from '@/hooks/queries'
+import { useAjustes, useActualizarAjustes, useActualizarPerfil, AJUSTES_DEFAULT } from '@/hooks/queries'
 import { EMPRESA_DEFAULT, SISTEMA_DEFAULT, LINEAS } from '@/lib/constants'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -67,6 +67,8 @@ export function AjustesPage({ onVolver }: Props) {
   // Solo el admin puede ver/editar datos de empresa, reglas del sistema,
   // respaldo y borrado masivo. Un vendedor solo ve "Tema" y "Mi cuenta".
   const currentUser = useAuthStore((s) => s.currentUser)
+  const emailAcceso = useAuthStore((s) => s.session?.user.email ?? '')
+  const refrescarUsuario = useAuthStore((s) => s.fetchCurrentUser)
   const esAdmin = currentUser?.rol === 'admin'
 
   const { data: ajustes, isLoading: cargandoAjustes } = useAjustes(null)
@@ -88,20 +90,28 @@ export function AjustesPage({ onVolver }: Props) {
   }
 
   // "Mi cuenta": disponible para cualquier usuario logueado
-  const actualizarUsername = useActualizarUsername()
+  const actualizarPerfil = useActualizarPerfil()
+  const [nuevoNombre, setNuevoNombre] = React.useState('')
   const [nuevoUsername, setNuevoUsername] = React.useState('')
 
   React.useEffect(() => {
-    if (currentUser) setNuevoUsername(currentUser.username)
+    if (!currentUser) return
+    setNuevoNombre(currentUser.nombre)
+    setNuevoUsername(currentUser.username)
   }, [currentUser])
 
-  async function handleGuardarUsername() {
+  async function handleGuardarPerfil() {
     if (!currentUser) return
     try {
-      await actualizarUsername.mutateAsync({ userId: currentUser.id, nuevoUsername })
-      toast.success('Nombre de usuario actualizado.')
+      await actualizarPerfil.mutateAsync({
+        userId: currentUser.id,
+        nuevoNombre,
+        nuevoUsername,
+      })
+      await refrescarUsuario()
+      toast.success('Perfil actualizado.')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al actualizar el usuario.')
+      toast.error(e instanceof Error ? e.message : 'Error al actualizar el perfil.')
     }
   }
 
@@ -221,43 +231,57 @@ export function AjustesPage({ onVolver }: Props) {
           <SectionCard icon={UserCircle} title="Mi cuenta">
             <div className="space-y-3">
               <div className="grid gap-2">
-                <Label htmlFor="mi-nombre">Nombre para mostrar</Label>
+                <Label htmlFor="mi-nombre">Nombre completo</Label>
                 <Input
                   id="mi-nombre"
-                  value={currentUser.nombre}
+                  value={nuevoNombre}
+                  onChange={(e) => setNuevoNombre(e.target.value)}
+                  placeholder="Ej: Juan Pérez"
+                  autoComplete="name"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Es el nombre que te identifica dentro del sistema.
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="mi-username">Alias visible</Label>
+                <Input
+                  id="mi-username"
+                  value={nuevoUsername}
+                  onChange={(e) => setNuevoUsername(e.target.value)}
+                  placeholder="juan"
+                  autoComplete="off"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Se muestra como @{nuevoUsername.trim() || 'usuario'} dentro del sistema.
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="mi-email">Email de acceso</Label>
+                <Input
+                  id="mi-email"
+                  type="email"
+                  value={emailAcceso}
                   disabled
                   className="bg-muted/30"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  El nombre para mostrar lo setea el administrador al crear tu cuenta.
+                  Usás este email junto con tu contraseña para iniciar sesión.
                 </p>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="mi-username">Nombre de usuario (login)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="mi-username"
-                    value={nuevoUsername}
-                    onChange={(e) => setNuevoUsername(e.target.value)}
-                    placeholder="mi_usuario"
-                    autoComplete="off"
-                  />
-                  <Button
-                    onClick={handleGuardarUsername}
-                    disabled={
-                      nuevoUsername.trim().toLowerCase() === currentUser.username ||
-                      actualizarUsername.isPending
-                    }
-                    className="shrink-0"
-                  >
-                    {actualizarUsername.isPending ? 'Guardando...' : 'Guardar'}
-                  </Button>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Podés cambiar tu nombre de usuario cuando quieras. La contraseña
-                  no se puede cambiar.
-                </p>
-              </div>
+              <Button
+                onClick={handleGuardarPerfil}
+                disabled={
+                  !nuevoNombre.trim() ||
+                  !nuevoUsername.trim() ||
+                  (nuevoNombre.trim() === currentUser.nombre &&
+                    nuevoUsername.trim().toLowerCase() === currentUser.username) ||
+                  actualizarPerfil.isPending
+                }
+                className="w-full sm:w-auto"
+              >
+                {actualizarPerfil.isPending ? 'Guardando...' : 'Guardar cambios'}
+              </Button>
             </div>
           </SectionCard>
         )}

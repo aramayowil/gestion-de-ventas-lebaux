@@ -1,12 +1,10 @@
 /**
  * pages/GestionVendedoresPage.tsx — Solo admin.
  *
- * Lista todos los vendedores y permite crear nuevos (asignando username
- * + password). También puede eliminar vendedores (lo que NO elimina sus
- * clientes/obras, solo el acceso).
- *
- * Las credenciales seteadas al crear no pueden cambiarse después
- * (excepto el username, que el vendedor cambia desde Ajustes).
+ * Lista todos los vendedores y permite crear nuevos con sus datos visibles y
+ * credenciales de acceso. También puede eliminarlos (lo que NO elimina sus
+ * clientes/obras, solo el acceso). El nombre completo y el alias se pueden
+ * editar después desde Ajustes; el email y la contraseña autentican la cuenta.
  */
 import * as React from 'react'
 import { toast } from 'sonner'
@@ -172,9 +170,8 @@ export function GestionVendedoresPage({ onVolver }: Props) {
         <div className="rounded-xl border border-primary/30 bg-primary/[0.06] p-3.5 flex items-start gap-2.5">
           <KeyRound className="size-4 text-primary shrink-0 mt-0.5" />
           <p className="text-xs text-foreground/80">
-            Las credenciales (usuario + contraseña) que asignás al crear un
-            vendedor no pueden cambiarse después. El vendedor solo puede
-            cambiar su nombre de usuario desde Ajustes.
+            El email y la contraseña permiten iniciar sesión. El vendedor puede
+            cambiar su nombre completo y su alias visible desde Ajustes.
           </p>
         </div>
 
@@ -265,14 +262,14 @@ function CrearVendedorModal({
         <SheetHeader>
           <SheetTitle className="font-display text-xl">Crear vendedor</SheetTitle>
           <SheetDescription>
-            Asigná un usuario y contraseña. Estas credenciales no podrán
-            cambiarse después (excepto el nombre de usuario).
+            Definí sus datos visibles y las credenciales que usará para iniciar
+            sesión.
           </SheetDescription>
         </SheetHeader>
 
         <SheetBody>
           <div className="grid gap-2">
-            <Label htmlFor="v-nombre">Nombre para mostrar</Label>
+            <Label htmlFor="v-nombre">Nombre completo</Label>
             <Input
               id="v-nombre"
               value={nombre}
@@ -283,7 +280,7 @@ function CrearVendedorModal({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="v-email">Email (login)</Label>
+            <Label htmlFor="v-email">Email de acceso</Label>
             <Input
               id="v-email"
               type="email"
@@ -294,7 +291,7 @@ function CrearVendedorModal({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="v-username">Nombre de usuario (display)</Label>
+            <Label htmlFor="v-username">Alias visible</Label>
             <Input
               id="v-username"
               value={username}
@@ -302,6 +299,9 @@ function CrearVendedorModal({
               placeholder="juan"
               autoComplete="off"
             />
+            <p className="text-[11px] text-muted-foreground">
+              Se mostrará como @{username.trim() || 'usuario'} dentro del sistema.
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="v-password">Contraseña</Label>

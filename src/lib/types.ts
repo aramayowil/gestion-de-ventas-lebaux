@@ -45,12 +45,12 @@ export type Rol = 'admin' | 'vendedor'
 
 export interface User {
   id: string
-  /** Nombre de usuario único (login). El vendedor puede cambiarlo. */
+  /** Alias visible único (ej: @juan). No se usa para iniciar sesión. */
   username: string
   /** Hash simple (no seguro, solo demo localStorage). */
   passwordHash: string
   rol: Rol
-  /** Nombre para mostrar (ej: "Juan Pérez"). */
+  /** Nombre completo que identifica al usuario (ej: "Juan Pérez"). */
   nombre: string
   creadoEn: string
   /** ID del admin que creó a este vendedor (null si es admin seed). */

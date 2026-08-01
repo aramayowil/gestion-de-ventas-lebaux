@@ -230,14 +230,13 @@
   }
 
   /* La bienvenida entra en secuencia cada vez que se navega a Home. Los
-   * retrasos mantienen la lectura natural: saludo → fecha → mensaje → acción. */
+   * retrasos mantienen la lectura natural: saludo → fecha → mensaje. */
   .home-entrada {
     opacity: 0;
     animation: home-entrada 600ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
   .home-entrada-2 { animation-delay: 100ms; }
   .home-entrada-3 { animation-delay: 220ms; }
-  .home-entrada-4 { animation-delay: 340ms; }
 
   @keyframes home-entrada {
     from {
