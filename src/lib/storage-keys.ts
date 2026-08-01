@@ -17,9 +17,12 @@ export const STORAGE_KEY_PAGOS = 'lebaux-pagos'
 export const STORAGE_KEY_AJUSTES = 'lebaux-ajustes'
 /** Drafts en curso (form de obra no finalizado). */
 export const STORAGE_KEY_BORRADORES = 'lebaux-borradores'
+/** Plantillas locales de obras reutilizables (solo en este dispositivo). */
+export const STORAGE_KEY_PLANTILLAS = 'lebaux-plantillas'
 /** Historial local de descripciones de abertura ya tipeadas, para
  * autocompletar. Solo vive en este dispositivo (no es dato de negocio). */
-export const STORAGE_KEY_DESCRIPCIONES_FRECUENTES = 'lebaux-descripciones-frecuentes'
+export const STORAGE_KEY_DESCRIPCIONES_FRECUENTES =
+  'lebaux-descripciones-frecuentes'
 /** Remitos de fábrica (generados al finalizar venta). */
 export const STORAGE_KEY_REMITOS = 'lebaux-remitos'
 /** Turnos de fábrica (agenda L-S 8-17). */
