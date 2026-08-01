@@ -76,7 +76,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import {
   DropdownMenu,
@@ -108,12 +107,13 @@ import {
   formatWhatsApp,
   diasHastaVencimiento,
   esVenta,
+  normalizarWhatsApp,
 } from '@/lib/obra-totales'
 import type { Obra, TipoObra, User } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { ClienteFormModal } from '@/components/lebaux/clientes/ClienteFormModal'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { ClientAvatar } from '@/components/shared/ClientAvatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { WhatsAppIcon } from '@/components/ui/icons/WhatsAppIcon'
 import { EstadoPresupuestoBadge } from '@/components/shared/EstadoPresupuestoBadge'
 import { PresupuestoModal } from '@/components/lebaux/clientes/PresupuestoModal'
@@ -192,6 +192,7 @@ export function ClienteDetalle({
   )
   const [modalCompartir, setModalCompartir] = React.useState(false)
   const [modalReasignar, setModalReasignar] = React.useState(false)
+  const [modalEliminarCliente, setModalEliminarCliente] = React.useState(false)
 
   const obras = React.useMemo(
     () =>
@@ -250,6 +251,16 @@ export function ClienteDetalle({
   // Stats del hero: solo ventas confirmadas (estadoPresupuesto='aceptado').
   // Los presupuestos sin aceptar todavía no son plata real, no se cuentan.
   const resumenVentas = resumenObras.filter((r) => esVenta(r.obra))
+  const iniciales =
+    cliente.nombre
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((palabra) => palabra[0]?.toUpperCase() ?? '')
+      .join('') || 'C'
+  const telefonoWhatsAppNormalizado = normalizarWhatsApp(
+    cliente.telefonoWhatsApp,
+  )
   const saldoTotal = resumenVentas.reduce(
     (acc, r) => acc + r.totales.saldoPendiente,
     0,
@@ -297,6 +308,12 @@ export function ClienteDetalle({
       (r) => r.obra.estadoPresupuesto === 'borrador',
     ).length,
     todos: resumenObras.length,
+  }
+
+  function abrirChatWhatsApp() {
+    if (!telefonoWhatsAppNormalizado) return
+    const url = `https://wa.me/${telefonoWhatsAppNormalizado}`
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   async function handleEliminarCliente() {
@@ -359,35 +376,45 @@ export function ClienteDetalle({
       onBack={onVolver}
       onIrAInicio={onVolver}
     >
-      {/* ─── Hero del cliente (con botón Editar dentro) ─── */}
-      <section className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-5 dark:bg-gradient-to-b dark:from-card/90 dark:to-card/60">
+      {/* ─── Hero del cliente (con avatar de shadcn, WhatsApp y menú de acciones) ─── */}
+      <section className="rounded-2xl border border-border/60 bg-card/60 p-5 shadow-sm backdrop-blur-sm dark:bg-linear-to-b dark:from-card/90 dark:to-card/60">
         <div className="flex items-start gap-4">
-          <ClientAvatar
-            nombre={cliente.nombre}
-            size="lg"
-            alert={saldoTotal > 0}
-          />
+          <Avatar className="size-14 shrink-0 border border-border/60 bg-muted/70 text-base font-semibold text-foreground">
+            <AvatarFallback>{iniciales}</AvatarFallback>
+          </Avatar>
           <div className="min-w-0 flex-1">
-            <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight truncate">
+            <h2 className="truncate font-display text-xl font-semibold tracking-tight sm:text-2xl">
               {cliente.nombre}
             </h2>
-            {cliente.telefonoWhatsApp ? (
-              <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                <WhatsAppIcon className="size-3.5 shrink-0" />
-                <span className="truncate money">
-                  {formatWhatsApp(cliente.telefonoWhatsApp, prefijoWhatsApp) ||
-                    '—'}
-                </span>
-              </p>
-            ) : (
-              <p className="text-sm text-amber-600 dark:text-amber-400 mt-0.5 flex items-center gap-1.5">
-                <AlertTriangle
-                  className="size-3.5 shrink-0"
-                  aria-hidden="true"
-                />
-                <span className="truncate">Sin número de WhatsApp cargado</span>
-              </p>
-            )}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              {cliente.telefonoWhatsApp ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 rounded-full border-border/60 bg-background/70 px-3 text-sm text-foreground hover:bg-primary/5"
+                  onClick={abrirChatWhatsApp}
+                  aria-label="Abrir chat de WhatsApp"
+                >
+                  <WhatsAppIcon className="size-5 shrink-0" />
+                  <span className="truncate money">
+                    {formatWhatsApp(
+                      cliente.telefonoWhatsApp,
+                      prefijoWhatsApp,
+                    ) || '—'}
+                  </span>
+                </Button>
+              ) : (
+                <p className="mt-0.5 flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
+                  <AlertTriangle
+                    className="size-3.5 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span className="truncate">
+                    Sin número de WhatsApp cargado
+                  </span>
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {/* Botón compartir: solo vendedores propietarios pueden compartir */}
@@ -424,6 +451,65 @@ export function ClienteDetalle({
               <Pencil className="size-4" />
               <span className="hidden sm:inline">Editar</span>
             </Button>
+            <AlertDialog
+              open={modalEliminarCliente}
+              onOpenChange={setModalEliminarCliente}
+            >
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    aria-label="Más acciones del cliente"
+                  >
+                    <MoreVertical className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      setModalEliminarCliente(true)
+                    }}
+                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                  >
+                    <Trash2 className="size-3.5" />
+                    Eliminar cliente
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    ¿Eliminar a {cliente.nombre}?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {obras.length > 0 ? (
+                      <>
+                        Se borrarán también las{' '}
+                        <strong>{obras.length} obras</strong> y todos sus pagos
+                        registrados. Esta acción no se puede deshacer.
+                      </>
+                    ) : (
+                      'Esta acción no se puede deshacer.'
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleEliminarCliente}
+                    disabled={eliminarClienteMutation.isPending}
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                  >
+                    {eliminarClienteMutation.isPending
+                      ? 'Eliminando...'
+                      : 'Sí, eliminar todo'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
@@ -458,7 +544,7 @@ export function ClienteDetalle({
 
       {/* ─── Drafts disponibles para continuar ─── */}
       {draftsDeCliente.length > 0 && (
-        <section className="rounded-xl border border-primary/30 bg-primary/[0.06] dark:bg-primary/[0.1] ring-1 ring-primary/20 p-4 space-y-2">
+        <section className="rounded-xl border border-primary/30 bg-primary/6 dark:bg-primary/10 ring-1 ring-primary/20 p-4 space-y-2">
           <p className="text-[11px] uppercase tracking-wider text-primary font-semibold flex items-center gap-1.5">
             <Clock className="size-3.5" aria-hidden="true" />
             Borradores en curso
@@ -617,52 +703,6 @@ export function ClienteDetalle({
           </div>
         )}
       </section>
-
-      {/* ─── Eliminar cliente ─── */}
-      <div className="pt-2">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="size-4" />
-              {obras.length > 0
-                ? 'Eliminar cliente y todas sus obras'
-                : 'Eliminar cliente'}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Eliminar a {cliente.nombre}?</AlertDialogTitle>
-              <AlertDialogDescription>
-                {obras.length > 0 ? (
-                  <>
-                    Se borrarán también las{' '}
-                    <strong>{obras.length} obras</strong> y todos sus pagos
-                    registrados. Esta acción no se puede deshacer.
-                  </>
-                ) : (
-                  'Esta acción no se puede deshacer.'
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleEliminarCliente}
-                disabled={eliminarClienteMutation.isPending}
-                className="bg-destructive text-white hover:bg-destructive/90"
-              >
-                {eliminarClienteMutation.isPending
-                  ? 'Eliminando...'
-                  : 'Sí, eliminar todo'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
 
       <ClienteFormModal
         open={modalEdit}
@@ -1245,7 +1285,7 @@ function ObraCard({
           </span>
           <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-success to-success/70 transition-[width] duration-500"
+              className="h-full rounded-full bg-linear-to-r from-success to-success/70 transition-[width] duration-500"
               style={{ width: `${progreso * 100}%` }}
             />
           </div>
