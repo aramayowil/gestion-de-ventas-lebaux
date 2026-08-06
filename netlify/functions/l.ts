@@ -17,6 +17,18 @@
 import type { Handler } from '@netlify/functions'
 import { createClient } from '@supabase/supabase-js'
 
+/** Headers de respuesta HTML de error, tipados como Record<string, string>
+ * para que coincidan en forma con los headers del 302 más abajo — si TS
+ * infiere cada `return` con una forma de objeto distinta (uno con
+ * Location, otro sin), termina generando un tipo unión donde las
+ * propiedades ausentes quedan como `?: undefined`, y eso no es asignable
+ * a la firma de índice `{ [header: string]: string | number | boolean }`
+ * que exige HandlerResponse. Con un tipo explícito común, ese problema
+ * desaparece. */
+function headersHtml(): Record<string, string> {
+  return { 'Content-Type': 'text/html; charset=utf-8' }
+}
+
 function paginaError(mensaje: string): string {
   return `<!DOCTYPE html>
 <html lang="es">
@@ -44,14 +56,19 @@ function paginaError(mensaje: string): string {
 
 export const handler: Handler = async (event) => {
   try {
-    // El código llega como query param `codigo` (ver el rewrite en
-    // netlify.toml: /l/:codigo → /.netlify/functions/l?codigo=:codigo)
-    const codigo = event.queryStringParameters?.codigo?.trim()
+    // El código llega como el último segmento del path (ver el redirect
+    // en netlify.toml: /l/* → /.netlify/functions/l/:splat). No usar
+    // queryStringParameters acá: ese approach (con placeholder :codigo
+    // armado en el query string del destino) es el que no matcheaba en
+    // producción. Con splat, Netlify reenvía el path completo a la
+    // función, y basta con tomar el último segmento no vacío.
+    const segmentos = event.path.split('/').filter(Boolean)
+    const codigo = segmentos[segmentos.length - 1]?.trim()
 
     if (!codigo) {
       return {
         statusCode: 400,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        headers: headersHtml(),
         body: paginaError('Falta el código del link.'),
       }
     }
@@ -61,7 +78,7 @@ export const handler: Handler = async (event) => {
     if (!supabaseUrl || !serviceRoleKey) {
       return {
         statusCode: 500,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        headers: headersHtml(),
         body: paginaError('Error de configuración del servidor.'),
       }
     }
@@ -77,7 +94,7 @@ export const handler: Handler = async (event) => {
     if (!link) {
       return {
         statusCode: 404,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        headers: headersHtml(),
         body: paginaError('El link no existe o es incorrecto.'),
       }
     }
@@ -85,32 +102,32 @@ export const handler: Handler = async (event) => {
     if (new Date(link.expira_en).getTime() < Date.now()) {
       return {
         statusCode: 410,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        headers: headersHtml(),
         body: paginaError(
           'Este link venció. Pedile al vendedor que te lo reenvíe.',
         ),
       }
     }
 
+    const headers302: Record<string, string> = {
+      Location: link.url_destino,
+      // El destino final (signed URL de Supabase) ya tiene su propia
+      // caché/expiración; acá evitamos que el navegador cachee el
+      // redirect en sí, para no pegarse a una URL vieja si el link
+      // corto se reasigna.
+      'Cache-Control': 'no-store',
+    }
+
     return {
       statusCode: 302,
-      headers: {
-        Location: link.url_destino,
-        // El destino final (signed URL de Supabase) ya tiene su propia
-        // caché/expiración; acá evitamos que el navegador cachee el
-        // redirect en sí, para no pegarse a una URL vieja si el link
-        // corto se reasigna.
-        'Cache-Control': 'no-store',
-      },
+      headers: headers302,
       body: '',
     }
   } catch (e) {
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      body: paginaError(
-        e instanceof Error ? e.message : 'Error inesperado.',
-      ),
+      headers: headersHtml(),
+      body: paginaError(e instanceof Error ? e.message : 'Error inesperado.'),
     }
   }
 }
