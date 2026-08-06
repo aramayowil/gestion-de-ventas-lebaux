@@ -43,6 +43,7 @@ import {
   generarPdf,
   type TipoComprobante,
 } from '@/lib/pdf-generate'
+import { useAjustes, AJUSTES_DEFAULT } from '@/hooks/queries'
 import { toast } from 'sonner'
 
 interface Props {
@@ -69,6 +70,7 @@ export function ImprimirDialog({
     permitirCombinado ? 'combinado' : 'recibo-solo',
   )
   const [generando, setGenerando] = React.useState(false)
+  const ivaBasePct = useAjustes(null).data?.sistema.ivaBasePct ?? AJUSTES_DEFAULT.sistema.ivaBasePct
 
   React.useEffect(() => {
     if (open) {
@@ -105,7 +107,7 @@ export function ImprimirDialog({
     if (!seleccion || generando) return
     setGenerando(true)
     try {
-      await generarPdf(seleccion, { cliente, obra, pago, totales })
+      await generarPdf(seleccion, { cliente, obra, pago, totales, ivaBasePct })
       const etiqueta =
         seleccion === 'combinado'
           ? 'Recibo y Condiciones de Entrega'

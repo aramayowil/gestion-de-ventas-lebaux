@@ -444,6 +444,47 @@ export function ClientesHome({ onVerCliente }: Props) {
     pagos: Pago[]
   } | null>(null)
   const [mostrarEncabezado, setMostrarEncabezado] = React.useState(true)
+  // Umbral único: si el toggle se decide por un solo punto de corte
+  // (ej. "scrollTop <= 8"), el rebote elástico de iOS y el scroll
+  // inercial hacen que scrollTop oscile un par de píxeles alrededor de
+  // ese punto varias veces por segundo — cada cruce dispara la
+  // animación del encabezado (200ms) y eso es lo que se ve/siente como
+  // "vibración" vertical en mobile. La solución es tratar mostrar/
+  // ocultar como dos umbrales distintos con espacio entre sí
+  // (histéresis) + un mínimo de desplazamiento por evento, y throttlear
+  // con requestAnimationFrame para no reevaluar en cada micro-tick.
+  const ultimoScrollTopRef = React.useRef(0)
+  const scrollRafPendienteRef = React.useRef(false)
+
+  function handleScrollListaClientes(event: React.UIEvent<HTMLDivElement>) {
+    const el = event.currentTarget
+    if (scrollRafPendienteRef.current) return
+    scrollRafPendienteRef.current = true
+    requestAnimationFrame(() => {
+      scrollRafPendienteRef.current = false
+      // Clamp: iOS puede reportar scrollTop negativo durante el rebote
+      // elástico en el tope; lo tratamos como si fuera 0.
+      const scrollTop = Math.max(0, el.scrollTop)
+      const anterior = ultimoScrollTopRef.current
+      const delta = scrollTop - anterior
+      ultimoScrollTopRef.current = scrollTop
+
+      // Cerca del tope: siempre mostrar, sin importar micro-oscilaciones.
+      if (scrollTop <= 24) {
+        setMostrarEncabezado((actual) => (actual ? actual : true))
+        return
+      }
+      // Zona muerta: un movimiento chico (rebote, inercia residual) no
+      // alcanza para togglear — hace falta un desplazamiento real en una
+      // dirección para decidir mostrar u ocultar.
+      const UMBRAL_DELTA = 12
+      if (delta > UMBRAL_DELTA) {
+        setMostrarEncabezado((actual) => (actual ? false : actual))
+      } else if (delta < -UMBRAL_DELTA) {
+        setMostrarEncabezado((actual) => (actual ? actual : true))
+      }
+    })
+  }
 
   return (
     <AppLayout
@@ -687,12 +728,7 @@ export function ClientesHome({ onVerCliente }: Props) {
 
         <div
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4"
-          onScroll={(event) => {
-            const debeMostrar = event.currentTarget.scrollTop <= 8
-            setMostrarEncabezado((actual) =>
-              actual === debeMostrar ? actual : debeMostrar,
-            )
-          }}
+          onScroll={handleScrollListaClientes}
         >
           {loadingClientes ? (
             <div className="grid gap-2">

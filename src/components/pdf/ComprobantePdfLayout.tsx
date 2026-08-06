@@ -3,55 +3,16 @@
  *
  * PDF de UNA SOLA PÁGINA: "Recibo y Condiciones de Entrega".
  *
- * Antes este documento eran 2 páginas separadas (Acta de Entrega +
- * Recibo de Pago). Se fusionaron en una sola hoja para ahorrar papel
- * e impresión: ya no existe una "página 2" de recibo independiente.
- *
  *   Contenido de la página única:
  *     · Header (logo + empresa + título "Recibo y Condiciones de Entrega")
  *     · Datos del cliente y la obra
  *     · Tabla de elementos entregados (tipologías de la obra)
- *     · Sub-totales de la obra (bruto, descuento, total)
+ *     · Sub-totales de la obra y aviso de Precio con IVA a la izquierda
  *     · Resumen del pago recibido (monto, total abonado, saldo)
  *     · Condiciones técnicas y cobertura del servicio (texto legal del acta)
  *     · Firmas (Receptor / Responsable)
- *
- * OPTIMIZACIONES APLICADAS (versión 3 — fusión a 1 página + impresión
- * económica + accesibilidad):
- *
- *   1. FUSIÓN A UNA PÁGINA
- *      · Se elimina la Página 2 (Recibo de Pago) como página separada;
- *        su contenido (resumen del pago) ahora es una sección más dentro
- *        de la única página, ubicada entre la tabla de elementos y las
- *        condiciones técnicas.
- *      · Se elimina el header "minimal" de la antigua página 2 y el pie
- *        de página "Página 2 de 2" — ya no aplica con una sola hoja.
- *      · El título del documento pasa a ser "Recibo y Condiciones de
- *        Entrega" (antes "Acta de Entrega" / "Recibo de Pago" por
- *        separado).
- *
- *   2. AHORRO DE TINTA (heredado de versión 2)
- *      · Sin fondos sólidos oscuros en barras de sección: texto en
- *        negrita + línea fina de acento (0.5 pt) en color marca.
- *      · Sin fondo en encabezados de tabla ni filas alternas.
- *      · Cajas destacadas definidas por borde fino + negrita, sin fondo.
- *      · Bordes reducidos: 2 pt → 0.75 pt; 1.5 pt → 0.5 pt.
- *
- *   3. OPTIMIZACIÓN DE ESPACIO (ajustada para entrar en 1 página)
- *      · Padding de página 24 pt.
- *      · Tipografía y paddings compactos en toda la hoja.
- *      · Bloque de firmas único al final (ya no se repite por página).
- *
- *   4. ACCESIBILIDAD
- *      · TEXT_MUTED #4A4A4A (contraste AAA sobre blanco).
- *      · Tamaño mínimo de fuente 8 pt (notas legales).
- *      · Jerarquía tipográfica clara: títulos de sección en bold + color
- *        marca, subtítulos en bold gris oscuro, cuerpo en texto oscuro.
- *      · El color de marca nunca es el único canal de estado: siempre
- *        acompañado de texto descriptivo o borde.
- *      · El logo lleva un Text adyacente con el nombre de la empresa
- *        (lectura por screen reader en el PDF de @react-pdf/renderer).
  */
+
 import {
   Document,
   Page,
@@ -66,16 +27,17 @@ import {
   formatFechaCorta,
   formatFechaLarga,
   pluralizar,
+  calcularPrecioFinalConIva,
 } from '@/lib/obra-totales'
 import { EMPRESA_DEFAULT as EMPRESA } from '@/lib/constants'
 
 /* ── Paleta corporativa ── */
 const BRAND = '#C8852A' // Dorado del logo Lebaux (#FDC97D) oscurecido para AA sobre blanco
 const TEXT_DARK = '#2B2B2B'
-// Mejor contraste AAA sobre blanco (antes #666666 ≈ AA justo).
 const TEXT_MUTED = '#4A4A4A'
 const BORDER_SOFT = '#BFBFBF'
 const BORDER_BRAND = BRAND
+const RED_ALERT = '#D32F2F' // Rojo para avisos destacados
 
 const styles = StyleSheet.create({
   /* ── Página ── */
@@ -139,7 +101,7 @@ const styles = StyleSheet.create({
     color: TEXT_DARK,
   },
 
-  /* ── Barra de sección — sin fondo, solo tipografía + línea fina ── */
+  /* ── Barra de sección ── */
   seccionBar: {
     fontSize: 8.5,
     fontWeight: 'bold',
@@ -167,7 +129,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  /* ── Sección título (estilo acta) — sin fondo sólido ── */
+  /* ── Sección título ── */
   seccionTitulo: {
     fontSize: 9,
     fontWeight: 'bold',
@@ -228,9 +190,34 @@ const styles = StyleSheet.create({
   /* ── Sub-totales inline (debajo de la tabla) ── */
   subtotalesBox: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     marginTop: 3,
     marginBottom: 3,
+  },
+  avisoIvaContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  avisoIvaBox: {
+    borderWidth: 0.75,
+    borderColor: RED_ALERT,
+    borderRadius: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    alignSelf: 'flex-start',
+  },
+  avisoIvaEtiqueta: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: RED_ALERT,
+    letterSpacing: 0.3,
+  },
+  avisoIvaMonto: {
+    fontSize: 10.5,
+    fontWeight: 'bold',
+    color: RED_ALERT,
+    marginTop: 1,
   },
   subtotalesTabla: {
     minWidth: 210,
@@ -258,7 +245,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
-  /* ── Resumen del pago (fusionado, sin ser una página aparte) ── */
+  /* ── Resumen del pago ── */
   pagoRow: {
     flexDirection: 'row',
     gap: 14,
@@ -314,7 +301,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
 
-  /* ── Condiciones / notas (acta) ── */
+  /* ── Condiciones / notas ── */
   notaDestacada: {
     fontSize: 8,
     fontWeight: 'bold',
@@ -441,9 +428,37 @@ function FilaElemento({
   )
 }
 
-function SubtotalesBox({ totales }: { totales: TotalesObra }) {
+function SubtotalesBox({
+  totales,
+  obra,
+  ivaBasePct,
+}: {
+  totales: TotalesObra
+  obra: Obra
+  ivaBasePct: number
+}) {
+  const mostrarPrecioConIva = !totales.incluyeIva && !!obra.mostrarPrecioConIva
+
   return (
     <View style={styles.subtotalesBox}>
+      {/* Lado Izquierdo: Aviso destacado de Precio con IVA en rojo */}
+      <View style={styles.avisoIvaContainer}>
+        {mostrarPrecioConIva && (
+          <View style={styles.avisoIvaBox}>
+            <Text style={styles.avisoIvaEtiqueta}>
+              AVISO — PRECIO CON IVA: $
+              {formatMoney(
+                calcularPrecioFinalConIva(
+                  totales.totalConDescuento,
+                  ivaBasePct,
+                ),
+              )}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Lado Derecho: Sub-totales tradicionales de la obra */}
       <View style={styles.subtotalesTabla}>
         <View style={styles.subtotalFila}>
           <Text>Total bruto:</Text>
@@ -471,6 +486,10 @@ export interface ComprobantePdfProps {
   obra: Obra
   pago: Pago
   totales: TotalesObra
+  /** IVA base del sistema (Ajustes), solo para calcular la línea
+   * informativa "PRECIO CON IVA" cuando `obra.mostrarPrecioConIva` está
+   * activo y la obra no discrimina IVA. */
+  ivaBasePct?: number
 }
 
 /* ────────────── Documento ────────────── */
@@ -480,6 +499,7 @@ export function ComprobantePdfLayout({
   obra,
   pago,
   totales,
+  ivaBasePct = 0,
 }: ComprobantePdfProps) {
   const nombreCliente = cliente.nombre || '_______________'
   const localidad = 'San Miguel de Tucumán, Tucumán'
@@ -504,13 +524,9 @@ export function ComprobantePdfLayout({
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            {/* Texto adyacente al logo para screen readers — el Image de
-                @react-pdf/renderer no soporta alt, así que el nombre de la
-                empresa como Texto vecino asegura la lectura por voz. */}
             <Text style={{ fontSize: 0.01, color: '#FFFFFF' }}>
               {EMPRESA.nombre} — {EMPRESA.rubro}
             </Text>
-            {/* Image es un primitivo de @react-pdf/renderer, no un <img> HTML */}
             <Image src="/logo.png" style={styles.headerLogo} />
           </View>
           <View style={styles.headerRight}>
@@ -533,7 +549,7 @@ export function ComprobantePdfLayout({
           <View style={styles.columnaCampos}>
             <Campo label="FECHA" valor={formatFechaLarga(obra.fecha)} />
             <Campo label="CLIENTE" valor={cliente.nombre} />
-            <Campo label="WHATSAPP" valor={cliente.telefonoWhatsApp} />
+            <Campo label="TELEFONO" valor={cliente.telefonoWhatsApp} />
           </View>
           <View style={styles.columnaCampos}>
             <Campo label="LOCALIDAD" valor={localidad} />
@@ -586,10 +602,10 @@ export function ComprobantePdfLayout({
           entrega.
         </Text>
 
-        {/* Sub-totales de la obra */}
-        <SubtotalesBox totales={totales} />
+        {/* Sub-totales de la obra (incluye el aviso de IVA a la izquierda) */}
+        <SubtotalesBox totales={totales} obra={obra} ivaBasePct={ivaBasePct} />
 
-        {/* Resumen del pago — antes era la "página 2" independiente */}
+        {/* Resumen del pago */}
         <Text style={styles.seccionTitulo}>3. Resumen del pago recibido</Text>
         <View style={styles.pagoRow} wrap={false}>
           <View style={styles.pagoDestacadoBox}></View>
@@ -608,7 +624,8 @@ export function ComprobantePdfLayout({
           * Este documento sirve como comprobante oficial del pago recibido en
           la fecha indicada. El saldo pendiente se actualiza en función de todos
           los pagos registrados sobre esta obra.
-          {pago.nota ? `\n\nNota: ${pago.nota}` : ''}
+          {pago.nota ? `\n\nNota del pago: ${pago.nota}` : ''}
+          {obra.notaCliente ? `\n\nNota: ${obra.notaCliente}` : ''}
         </Text>
 
         {/* Condiciones técnicas */}

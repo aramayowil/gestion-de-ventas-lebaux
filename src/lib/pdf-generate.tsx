@@ -20,6 +20,9 @@ export interface DatosComprobante {
   obra: Obra
   pago: Pago
   totales: TotalesObra
+  /** IVA base del sistema (Ajustes), para la línea informativa "PRECIO
+   * CON IVA" en ComprobantePdfLayout cuando corresponde. */
+  ivaBasePct?: number
 }
 
 /** Genera el PDF COMBINADO: Acta de Entrega (pág. 1) + Recibo de Pago (pág. 2). */
@@ -28,6 +31,7 @@ export async function generarPdfCombinado({
   obra,
   pago,
   totales,
+  ivaBasePct,
 }: DatosComprobante): Promise<void> {
   const [{ pdf }, { ComprobantePdfLayout }] = await Promise.all([
     import('@react-pdf/renderer'),
@@ -39,6 +43,7 @@ export async function generarPdfCombinado({
       obra={obra}
       pago={pago}
       totales={totales}
+      ivaBasePct={ivaBasePct}
     />,
   ).toBlob()
   const nroRecibo = String(pago.numeroRecibo).padStart(4, '0')

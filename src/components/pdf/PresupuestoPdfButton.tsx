@@ -31,6 +31,9 @@ export function PresupuestoPdfButton({
 }: Props) {
   const [cargando, setCargando] = React.useState(false)
   const empresa = useAjustes(null).data?.empresa ?? AJUSTES_DEFAULT.empresa
+  const ivaBasePct =
+    useAjustes(null).data?.sistema.ivaBasePct ??
+    AJUSTES_DEFAULT.sistema.ivaBasePct
 
   async function handleClick() {
     if (
@@ -54,6 +57,7 @@ export function PresupuestoPdfButton({
           obra={obra}
           totales={totales}
           empresa={empresa}
+          ivaBasePct={ivaBasePct}
         />,
       ).toBlob()
       const url = URL.createObjectURL(blob)

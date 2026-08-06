@@ -430,7 +430,8 @@ export function ReciboPagoPdfLayout({ cliente, obra, pago, totales }: Props) {
                 pago.montoBase != null &&
                 pago.montoBase < pago.monto && (
                   <Text style={styles.pagoDestacadoSub}>
-                    Incluye recargo por tarjeta · Se descuenta ${formatMoney(pago.montoBase)} del saldo
+                    Incluye recargo por tarjeta · Se descuenta $
+                    {formatMoney(pago.montoBase)} del saldo
                   </Text>
                 )}
             </View>

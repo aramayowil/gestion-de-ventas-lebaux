@@ -47,9 +47,7 @@ export function ComprobantePdfButton({
   function handleClick() {
     if (
       !obra.tipologias.length ||
-      obra.tipologias.some(
-        (t) => !t.descripcion.trim() || t.cantidad <= 0,
-      )
+      obra.tipologias.some((t) => !t.descripcion.trim() || t.cantidad <= 0)
     ) {
       toast.error(
         'Completá la descripción y cantidad de todas las aberturas antes de imprimir.',

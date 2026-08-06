@@ -21,7 +21,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { formatMoney } from '@/lib/obra-totales'
+import { calcularPrecioFinalConIva, formatMoney } from '@/lib/obra-totales'
+import { useAjustes, AJUSTES_DEFAULT } from '@/hooks/queries'
 import type { Obra, TotalesObra } from '@/lib/types'
 
 interface Props {
@@ -44,6 +45,7 @@ export function ConfirmarPresupuestoModal({
   onCancelar,
 }: Props) {
   const [enviando, setEnviando] = React.useState(false)
+  const ivaBasePct = useAjustes(null).data?.sistema.ivaBasePct ?? AJUSTES_DEFAULT.sistema.ivaBasePct
 
   React.useEffect(() => {
     if (open) setEnviando(false)
@@ -123,7 +125,24 @@ export function ConfirmarPresupuestoModal({
               ${formatMoney(totales.totalConIva)}
             </span>
           </div>
+          {!totales.incluyeIva && obra.mostrarPrecioConIva && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Precio con IVA</span>
+              <span className="font-medium">
+                ${formatMoney(calcularPrecioFinalConIva(totales.totalConIva, ivaBasePct))}
+              </span>
+            </div>
+          )}
         </div>
+
+        {obra.notaCliente && (
+          <div className="rounded-lg border border-dashed border-border/60 p-3 text-sm">
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              Nota para el cliente
+            </p>
+            <p className="whitespace-pre-wrap">{obra.notaCliente}</p>
+          </div>
+        )}
 
         <DialogFooter className="gap-2 sm:gap-2">
           <Button

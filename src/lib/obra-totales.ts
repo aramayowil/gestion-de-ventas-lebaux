@@ -58,6 +58,20 @@ export function desglosarIvaItem(
 }
 
 /**
+ * Calcula, de forma puramente visual, cuánto sería el "precio final con
+ * IVA" de un total que NO está discriminando IVA (`incluyeIva === false`).
+ * Se usa solo cuando el vendedor tilda "Mostrar precio final con IVA" en
+ * el formulario — no reemplaza ni modifica `totalConIva`/`saldoPendiente`,
+ * es un dato extra que se le muestra al cliente a título informativo.
+ */
+export function calcularPrecioFinalConIva(
+  totalFinal: number,
+  ivaBasePct: number,
+): number {
+  return redondearMoneda((totalFinal || 0) * (1 + (ivaBasePct || 0)))
+}
+
+/**
  * Suma lo que efectivamente CANCELA saldo de la obra: el monto BASE de
  * cada pago (equivalente efectivo/transferencia). Para pagos con Tarjeta,
  * `monto` incluye el recargo del 30% (o el % configurado) — ese extra es
@@ -457,6 +471,15 @@ export function construirMensajePresupuesto(opts: {
   ivaPct?: number
   ivaMonto?: number
   totalConIva?: number
+  /** Nota libre para el cliente (opcional). */
+  nota?: string
+  /** Si mostrar la línea informativa "PRECIO CON IVA: $XXXXX" (solo
+   * tiene sentido cuando `incluyeIva` es false — ver `mostrarPrecioConIva`
+   * en `Obra`). */
+  mostrarPrecioConIva?: boolean
+  /** IVA base del sistema (Ajustes), usado solo para calcular la línea
+   * anterior cuando corresponde. */
+  ivaBasePctSistema?: number
 }): string {
   const lineas: string[] = []
   lineas.push(`*${opts.nombreEmpresa}*`)
@@ -487,6 +510,14 @@ export function construirMensajePresupuesto(opts: {
   }
   const totalFinal = opts.incluyeIva ? (opts.totalConIva ?? opts.totalConDescuento) : opts.totalConDescuento
   lineas.push(`*TOTAL: $${formatMoney(totalFinal)}*`)
+  if (!opts.incluyeIva && opts.mostrarPrecioConIva && opts.ivaBasePctSistema) {
+    const precioConIva = calcularPrecioFinalConIva(totalFinal, opts.ivaBasePctSistema)
+    lineas.push(`PRECIO CON IVA: $${formatMoney(precioConIva)}`)
+  }
+  if (opts.nota && opts.nota.trim()) {
+    lineas.push('')
+    lineas.push(`Nota: ${opts.nota.trim()}`)
+  }
   lineas.push('')
   lineas.push('Quedamos a disposición por cualquier consulta.')
   return lineas.join('\n')

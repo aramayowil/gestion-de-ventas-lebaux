@@ -28,7 +28,10 @@
  *   · Presupuestos — tipo === 'presupuesto' Y estado en pendiente/rechazado
  *                    (los aceptados ya son ventas, no aparecen acá)
  *   · Deudas       — ventas con saldoPendiente > 0
- *   · Borradores   — estadoPresupuesto === 'borrador'
+ *   · Borradores   — drafts locales (borrador-store / localStorage), NO
+ *                    obras persistidas: nunca se guarda una obra en la
+ *                    tabla `obras` con estadoPresupuesto='borrador', así
+ *                    que esta tab se arma aparte con `draftsDeCliente`
  *   · Todos        — sin filtrar
  */
 
@@ -168,7 +171,7 @@ export function ClienteDetalle({
   const aceptarPresupuestoMutation = useAceptarPresupuesto()
   const rechazarPresupuestoMutation = useRechazarPresupuesto()
 
-  const [filtro, setFiltro] = React.useState<FiltroObras>('todos')
+  const [filtro, setFiltro] = React.useState<FiltroObras>('ventas')
   const [modalEdit, setModalEdit] = React.useState(false)
   const [modalTipoObra, setModalTipoObra] = React.useState(false)
   const [obraPresupuesto, setObraPresupuesto] = React.useState<Obra | null>(
@@ -250,7 +253,7 @@ export function ClienteDetalle({
 
   // Stats del hero: solo ventas confirmadas (estadoPresupuesto='aceptado').
   // Los presupuestos sin aceptar todavía no son plata real, no se cuentan.
-  const resumenVentas = resumenObras.filter((r) => esVenta(r.obra))
+
   const iniciales =
     cliente.nombre
       .split(/\s+/)
@@ -260,14 +263,6 @@ export function ClienteDetalle({
       .join('') || 'C'
   const telefonoWhatsAppNormalizado = normalizarWhatsApp(
     cliente.telefonoWhatsApp,
-  )
-  const saldoTotal = resumenVentas.reduce(
-    (acc, r) => acc + r.totales.saldoPendiente,
-    0,
-  )
-  const totalAbonado = resumenVentas.reduce(
-    (acc, r) => acc + r.totales.totalAbonado,
-    0,
   )
 
   // Listado filtrado por tab. El orden de evaluación importa: una obra
@@ -286,7 +281,10 @@ export function ClienteDetalle({
       case 'deudas':
         return esVenta(r.obra) && r.totales.saldoPendiente > 0
       case 'borradores':
-        return r.obra.estadoPresupuesto === 'borrador'
+        // Los borradores no son obras persistidas (ver borrador-store):
+        // este filtro nunca matchea nada acá, la tab se renderiza aparte
+        // con `draftsDeCliente` más abajo.
+        return false
       case 'todos':
       default:
         return true
@@ -304,9 +302,7 @@ export function ClienteDetalle({
     deudas: resumenObras.filter(
       (r) => esVenta(r.obra) && r.totales.saldoPendiente > 0,
     ).length,
-    borradores: resumenObras.filter(
-      (r) => r.obra.estadoPresupuesto === 'borrador',
-    ).length,
+    borradores: draftsDeCliente.length,
     todos: resumenObras.length,
   }
 
@@ -525,69 +521,7 @@ export function ClienteDetalle({
             </span>
           </p>
         )}
-
-        {/* Stats — solo ventas confirmadas, no presupuestos sin aceptar */}
-        <div className="mt-4 pt-4 border-t border-border/60 grid grid-cols-2 gap-3">
-          <Stat
-            label="Cobrado"
-            value={`$${formatMoney(totalAbonado)}`}
-            tone="success"
-          />
-          <Stat
-            label="Saldo pendiente"
-            value={`$${formatMoney(saldoTotal)}`}
-            tone={saldoTotal > 0 ? 'danger' : 'success'}
-          />
-        </div>
       </section>
-
-      {/* ─── Drafts disponibles para continuar ─── */}
-      {draftsDeCliente.length > 0 && (
-        <section className="rounded-xl border border-primary/30 bg-primary/6 dark:bg-primary/10 ring-1 ring-primary/20 p-4 space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-primary font-semibold flex items-center gap-1.5">
-            <Clock className="size-3.5" aria-hidden="true" />
-            Borradores en curso
-          </p>
-          {draftsDeCliente.map((d) => (
-            <div
-              key={d.tipo}
-              className="flex items-center justify-between gap-2 rounded-lg bg-card/60 border border-border/40 p-2.5"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">
-                  {d.tipo === 'presupuesto' ? 'Presupuesto' : 'Venta'}{' '}
-                  <span className="text-muted-foreground font-normal">
-                    · {d.obra.tipologias.length} ítem
-                    {d.obra.tipologias.length === 1 ? '' : 's'}
-                  </span>
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Última edición: {formatFechaCorta(d.actualizadoEn)}
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Button
-                  size="sm"
-                  className="h-8"
-                  onClick={() => onContinuarBorrador(d.tipo)}
-                >
-                  <PlayCircle className="size-3.5" />
-                  <span className="hidden sm:inline">Continuar</span>
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => eliminarBorrador(clienteId, d.tipo)}
-                  aria-label="Descartar borrador"
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
 
       {/* ─── Obras ─── */}
       <section>
@@ -607,7 +541,7 @@ export function ClienteDetalle({
         </div>
 
         {/* Tabs de filtro — "Todos" siempre al final */}
-        {obras.length > 0 && (
+        {(obras.length > 0 || draftsDeCliente.length > 0) && (
           <div className="flex flex-wrap gap-1.5 mb-3">
             <FiltroTab
               icon={ShoppingCart}
@@ -652,6 +586,62 @@ export function ClienteDetalle({
             <Skeleton className="h-24 w-full rounded-xl" />
             <Skeleton className="h-24 w-full rounded-xl" />
           </div>
+        ) : filtro === 'borradores' ? (
+          // Los borradores viven en localStorage (borrador-store), no en la
+          // tabla `obras` — se renderizan aparte de resumenFiltrado.
+          draftsDeCliente.length === 0 ? (
+            <div className="text-center py-12 px-4 border border-dashed border-border/60 rounded-xl">
+              <Edit3
+                className="size-8 mx-auto text-muted-foreground mb-2"
+                aria-hidden="true"
+              />
+              <p className="text-sm text-muted-foreground">
+                No hay borradores en curso para este cliente.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              {draftsDeCliente.map((d) => (
+                <div
+                  key={d.tipo}
+                  className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-4"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold font-display">
+                      {d.tipo === 'presupuesto' ? 'Presupuesto' : 'Venta'}{' '}
+                      <span className="text-muted-foreground font-normal">
+                        · {d.obra.tipologias.length} ítem
+                        {d.obra.tipologias.length === 1 ? '' : 's'}
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 inline-flex items-center gap-1">
+                      <Clock className="size-3" aria-hidden="true" />
+                      Última edición: {formatFechaCorta(d.actualizadoEn)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="sm"
+                      className="h-9"
+                      onClick={() => onContinuarBorrador(d.tipo)}
+                    >
+                      <PlayCircle className="size-3.5" />
+                      <span className="hidden sm:inline">Continuar</span>
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="size-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => eliminarBorrador(clienteId, d.tipo)}
+                      aria-label="Descartar borrador"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         ) : obras.length === 0 ? (
           <div className="text-center py-12 px-4 border border-dashed border-border/60 rounded-xl">
             <PackageOpen
@@ -1045,13 +1035,6 @@ function ReasignarVendedorModal({
   )
 }
 
-/** Traduce el "tone" de un Stat al color de texto que le corresponde. */
-function colorDeTono(tone: 'muted' | 'success' | 'danger') {
-  if (tone === 'success') return 'text-success'
-  if (tone === 'danger') return 'text-destructive'
-  return 'text-foreground'
-}
-
 /**
  * Arma el texto de vencimiento de un presupuesto "pendiente", según cuántos
  * días faltan (diasVenc puede ser negativo si ya venció).
@@ -1105,30 +1088,6 @@ function FiltroTab({
         ({count})
       </span>
     </button>
-  )
-}
-
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: string
-  tone: 'muted' | 'success' | 'danger'
-}) {
-  const valueColor = colorDeTono(tone)
-  return (
-    <div className="text-center sm:text-left">
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
-      <p
-        className={`mt-0.5 money text-base sm:text-lg font-semibold ${valueColor}`}
-      >
-        {value}
-      </p>
-    </div>
   )
 }
 

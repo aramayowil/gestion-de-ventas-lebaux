@@ -119,7 +119,13 @@ create table if not exists public.obras (
   pendiente_en          timestamptz,
   aceptado_en           timestamptz,
   rechazado_en          timestamptz,
-  rechazado_motivo      text
+  rechazado_motivo      text,
+  nota_cliente          text,
+  -- Solo tiene efecto visual cuando incluye_iva es false: agrega una
+  -- línea informativa "PRECIO CON IVA: $XXXXX" en form/PDF/WhatsApp,
+  -- calculada al vuelo con el ivaBasePct de Ajustes. No afecta ningún
+  -- cálculo de totales, saldo ni pagos.
+  mostrar_precio_con_iva boolean not null default false
 );
 
 create index if not exists idx_obras_cliente on public.obras(cliente_id);
@@ -674,6 +680,19 @@ where monto_base is null;
 
 create index if not exists idx_clientes_mayorista
   on public.clientes(is_mayorista) where is_mayorista;
+
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRACIÓN: nota_cliente + mostrar_precio_con_iva en obras
+-- ════════════════════════════════════════════════════════════════
+-- Nota libre para el cliente y checkbox "mostrar precio final con IVA"
+-- (solo visual, no afecta cálculos). Idempotente.
+
+alter table public.obras
+  add column if not exists nota_cliente text;
+
+alter table public.obras
+  add column if not exists mostrar_precio_con_iva boolean not null default false;
 
 
 -- ════════════════════════════════════════════════════════════════

@@ -70,7 +70,6 @@ export function HomePage({ onVerCliente }: Props) {
         <p className="home-entrada home-entrada-3 mt-16 max-w-md text-lg leading-8 text-muted-foreground sm:text-xl">
           {mensajeMotivacional}
         </p>
-
       </section>
 
       {modalNuevoCliente}

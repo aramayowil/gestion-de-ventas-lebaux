@@ -6,9 +6,8 @@
  * Contenido:
  *   · Header (logo + empresa + título "PRESUPUESTO")
  *   · Datos del cliente y fecha
- *   · Estado del presupuesto (borrador/enviado/aceptado/rechazado) + vencimiento
  *   · Tabla de aberturas (descripción, cantidad, precio unit., subtotal)
- *   · Sub-totales (bruto, descuento, total)
+ *   · Sub-totales (bruto, descuento, total) y aviso de Precio con IVA a la izquierda
  *   · Condiciones del presupuesto (validez, forma de pago)
  *   · Datos de contacto de la empresa
  *
@@ -28,15 +27,17 @@ import {
   formatFechaCorta,
   formatFechaLarga,
   redondearMoneda,
+  calcularPrecioFinalConIva,
 } from '@/lib/obra-totales'
 import { EMPRESA_DEFAULT } from '@/lib/constants'
 
 /* ── Paleta ── */
-const BRAND = '#C8852A' // Dorado del logo Lebaux (#FDC97D) oscurecido para AA sobre blanco
+const BRAND = '#C8852A'
 const TEXT_DARK = '#2B2B2B'
 const TEXT_MUTED = '#4A4A4A'
 const BORDER_SOFT = '#BFBFBF'
 const BORDER_BRAND = BRAND
+const RED_ALERT = '#D32F2F'
 
 const styles = StyleSheet.create({
   page: {
@@ -71,7 +72,7 @@ const styles = StyleSheet.create({
     color: BRAND,
     textAlign: 'right',
     letterSpacing: 0.6,
-    marginBottom: 3,
+    marginBottom: 10,
     textTransform: 'uppercase',
   },
   headerSubtitulo: {
@@ -89,37 +90,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginTop: 4,
     color: TEXT_DARK,
-  },
-
-  /* Estado del presupuesto — caja destacada */
-  estadoBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 0.75,
-    borderColor: BORDER_BRAND,
-    borderRadius: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    marginBottom: 8,
-  },
-  estadoLabel: {
-    fontSize: 7.5,
-    fontWeight: 'bold',
-    color: TEXT_MUTED,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  estadoValor: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: BRAND,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  vencimientoText: {
-    fontSize: 8,
-    color: TEXT_MUTED,
   },
 
   /* Sección bar */
@@ -190,9 +160,34 @@ const styles = StyleSheet.create({
   /* Sub-totales */
   subtotalesBox: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     marginTop: 4,
     marginBottom: 8,
+  },
+  avisoIvaContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  avisoIvaBox: {
+    borderWidth: 0.75,
+    borderColor: RED_ALERT,
+    borderRadius: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    alignSelf: 'flex-start',
+  },
+  avisoIvaEtiqueta: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: RED_ALERT,
+    letterSpacing: 0.3,
+  },
+  avisoIvaMonto: {
+    fontSize: 10.5,
+    fontWeight: 'bold',
+    color: RED_ALERT,
+    marginTop: 1,
   },
   subtotalesTabla: {
     minWidth: 220,
@@ -206,6 +201,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     fontSize: 8.5,
+    marginBottom: 1,
   },
   subtotalFilaDestacada: {
     flexDirection: 'row',
@@ -315,13 +311,11 @@ function FilaElemento({
   linea: string
   color: string
   precioUnitario: number
-  /** Precio unitario ya "completado" al IVA base (solo cuando
-   * `incluyeIva` está activo) — reemplaza al precio unitario original
-   * en la vista, no se muestra por separado. */
   precioUnitarioAjustado?: number
 }) {
   const precioAMostrar = precioUnitarioAjustado ?? precioUnitario
   const total = (cantidad || 0) * (precioAMostrar || 0)
+
   return (
     <View style={styles.tablaRow} wrap={false}>
       <Text style={styles.colCantidad}>{cantidad}</Text>
@@ -333,8 +327,8 @@ function FilaElemento({
           </Text>
         ) : null}
       </View>
-      <Text style={styles.colLinea}>{linea}</Text>
-      <Text style={styles.colColor}>{color}</Text>
+      <Text style={styles.colLinea}>{linea || '—'}</Text>
+      <Text style={styles.colColor}>{color || '—'}</Text>
       <Text style={styles.colPrecio}>
         {precioAMostrar > 0 ? `$${formatMoney(precioAMostrar)}` : '—'}
       </Text>
@@ -351,8 +345,8 @@ export interface PresupuestoPdfProps {
   cliente: Cliente
   obra: Obra
   totales: TotalesObra
-  /** Datos de empresa (opcional, default a EMPRESA_DEFAULT). */
   empresa?: typeof EMPRESA_DEFAULT
+  ivaBasePct?: number
 }
 
 /* ────────────── Documento ────────────── */
@@ -362,10 +356,15 @@ export function PresupuestoPdfLayout({
   obra,
   totales,
   empresa = EMPRESA_DEFAULT,
+  ivaBasePct = 0,
 }: PresupuestoPdfProps) {
+  const mostrarPrecioConIva = Boolean(
+    !totales.incluyeIva && obra.mostrarPrecioConIva,
+  )
+
   return (
     <Document
-      title={`Presupuesto — ${cliente.nombre}`}
+      title={`Presupuesto — ${cliente?.nombre || 'Cliente'}`}
       author={empresa.nombre}
       subject="Presupuesto de obra"
       creator={empresa.nombre}
@@ -373,7 +372,7 @@ export function PresupuestoPdfLayout({
       <Page
         size="A4"
         style={styles.page}
-        aria-label={`Presupuesto para ${cliente.nombre}`}
+        aria-label={`Presupuesto para ${cliente?.nombre || 'Cliente'}`}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -381,12 +380,10 @@ export function PresupuestoPdfLayout({
             <Text style={{ fontSize: 0.01, color: '#FFFFFF' }}>
               {empresa.nombre} — {empresa.rubro}
             </Text>
-            {/* Image es un primitivo de @react-pdf/renderer, no un <img> HTML */}
             <Image src="/logo.png" style={styles.headerLogo} />
           </View>
           <View style={styles.headerRight}>
             <Text style={styles.headerTitulo}>Presupuesto</Text>
-            <Text style={styles.headerSubtitulo}>{empresa.rubro}</Text>
             <Text style={styles.headerEmpresaDato}>{empresa.nombre}</Text>
             <Text style={styles.headerEmpresaDato}>{empresa.direccion}</Text>
             <Text style={styles.headerEmpresaDato}>
@@ -403,10 +400,10 @@ export function PresupuestoPdfLayout({
         <View style={styles.filaCamposGrid}>
           <View style={styles.columnaCampos}>
             <Campo label="FECHA" valor={formatFechaLarga(obra.fecha)} />
-            <Campo label="CLIENTE" valor={cliente.nombre} />
+            <Campo label="CLIENTE" valor={cliente?.nombre} />
           </View>
           <View style={styles.columnaCampos}>
-            <Campo label="WHATSAPP" valor={cliente.telefonoWhatsApp} />
+            <Campo label="TELEFONO" valor={cliente?.telefonoWhatsApp} />
             <Campo
               label="FORMA DE PAGO"
               valor={obra.formaPago || 'A convenir'}
@@ -424,12 +421,16 @@ export function PresupuestoPdfLayout({
           <Text style={styles.colPrecio}>P. Unit</Text>
           <Text style={styles.colTotal}>Total</Text>
         </View>
-        {obra.tipologias.map((t) => {
-          const desglose = totales.desgloseItems.find((d) => d.tipologiaId === t.id)
+
+        {obra.tipologias?.map((t) => {
+          const desglose = totales.desgloseItems?.find(
+            (d) => d.tipologiaId === t.id,
+          )
           const precioUnitarioAjustado =
             totales.incluyeIva && desglose && t.cantidad > 0
               ? redondearMoneda(desglose.totalAjustado / t.cantidad)
               : undefined
+
           return (
             <FilaElemento
               key={t.id}
@@ -443,41 +444,79 @@ export function PresupuestoPdfLayout({
           )
         })}
 
-        {/* Sub-totales */}
+        {/* Sub-totales + Aviso de Precio con IVA a la izquierda */}
         <View style={styles.subtotalesBox}>
+          {/* Lado Izquierdo: Aviso destacado de Precio con IVA */}
+          <View style={styles.avisoIvaContainer}>
+            {mostrarPrecioConIva && (
+              <View style={styles.avisoIvaBox}>
+                <Text style={styles.avisoIvaEtiqueta}>
+                  AVISO — PRECIO CON IVA: $
+                  {formatMoney(
+                    calcularPrecioFinalConIva(
+                      totales.totalConIva || 0,
+                      ivaBasePct,
+                    ),
+                  )}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Lado Derecho: Tabla de Sub-totales */}
           <View style={styles.subtotalesTabla}>
             <View style={styles.subtotalFila}>
               <Text>Total bruto:</Text>
               <Text>
-                ${formatMoney(totales.incluyeIva ? totales.totalAjustadoIva : totales.totalBruto)}
+                $
+                {formatMoney(
+                  totales.incluyeIva
+                    ? totales.totalAjustadoIva
+                    : totales.totalBruto,
+                )}
               </Text>
             </View>
-            {totales.descuentoPct > 0 && (
+
+            {(totales.descuentoPct || 0) > 0 && (
               <View style={styles.subtotalFila}>
                 <Text>
-                  Descuento ({Math.round(totales.descuentoPct * 100)}%):
+                  Descuento ({Math.round((totales.descuentoPct || 0) * 100)}%):
                 </Text>
                 <Text>− ${formatMoney(totales.descuentoMonto)}</Text>
               </View>
             )}
-            {totales.incluyeIva && (
-              <>
-                <View style={styles.subtotalFila}>
-                  <Text>Precio base (neto):</Text>
-                  <Text>${formatMoney(totales.totalBaseConDescuento)}</Text>
-                </View>
-                <View style={styles.subtotalFila}>
-                  <Text>IVA ({Math.round(totales.ivaPct * 1000) / 10}%):</Text>
-                  <Text>+ ${formatMoney(totales.ivaMonto)}</Text>
-                </View>
-              </>
-            )}
+
+            {/* Se evita usar Fragmentos <> </> porque suelen romper el render en @react-pdf/renderer */}
+            {totales.incluyeIva ? (
+              <View style={styles.subtotalFila}>
+                <Text>Precio base (neto):</Text>
+                <Text>${formatMoney(totales.totalBaseConDescuento)}</Text>
+              </View>
+            ) : null}
+
+            {totales.incluyeIva ? (
+              <View style={styles.subtotalFila}>
+                <Text>
+                  IVA ({Math.round((totales.ivaPct || 0) * 1000) / 10}%):
+                </Text>
+                <Text>+ ${formatMoney(totales.ivaMonto)}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.subtotalFilaDestacada}>
               <Text>TOTAL:</Text>
               <Text>${formatMoney(totales.totalConIva)}</Text>
             </View>
           </View>
         </View>
+
+        {/* Nota para el cliente */}
+        {obra.notaCliente ? (
+          <View>
+            <Text style={styles.seccionTitulo}>Nota</Text>
+            <Text style={styles.bulletText}>{obra.notaCliente}</Text>
+          </View>
+        ) : null}
 
         {/* Condiciones */}
         <Text style={styles.seccionTitulo}>Condiciones del presupuesto</Text>

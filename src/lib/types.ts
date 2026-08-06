@@ -109,6 +109,17 @@ export interface Obra {
   incluyeIva?: boolean
   /** Alícuota de IVA aplicada (0..1), fijada al activar el switch. */
   ivaPct?: number
+  /** Cuando NO se discrimina IVA (`incluyeIva` false), el vendedor puede
+   * tildar esta opción para mostrarle igual al cliente una línea con el
+   * precio final "con IVA" ya calculado, a modo informativo. Es
+   * puramente visual: usa el `ivaBasePct` de Ajustes en el momento de
+   * mostrarlo, no afecta ningún cálculo de totales, saldo ni pagos. Se
+   * ve en el formulario, el PDF y el mensaje de WhatsApp. */
+  mostrarPrecioConIva?: boolean
+  /** Nota libre para el cliente (condiciones especiales, aclaraciones,
+   * etc.). Se muestra en el formulario, el PDF y el mensaje de
+   * WhatsApp del presupuesto/venta — no afecta ningún cálculo. */
+  notaCliente?: string
 
   /* ── Presupuesto (estado + fechas para auto-rechazo) ── */
   estadoPresupuesto: EstadoPresupuesto
@@ -284,6 +295,8 @@ export function nuevaObra(clienteId: string, tipo: TipoObra = 'venta'): Obra {
     tipo,
     incluyeIva: false,
     ivaPct: 0,
+    mostrarPrecioConIva: false,
+    notaCliente: undefined,
   }
 }
 

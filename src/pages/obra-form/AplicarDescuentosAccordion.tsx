@@ -21,11 +21,12 @@
  * con el monto del PRIMER pago registrado (editable).
  */
 import * as React from 'react'
-import { Percent, Receipt, Wallet, Info } from 'lucide-react'
+import { Percent, Receipt, Wallet, Info, MessageSquareText } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { MoneyInput } from '@/components/ui/money-input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -37,7 +38,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { AccordionSection } from '@/components/ui/accordion-section'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAjustes, AJUSTES_DEFAULT } from '@/hooks/queries'
-import { calcularTotalesObra, formatMoney } from '@/lib/obra-totales'
+import { calcularTotalesObra, calcularPrecioFinalConIva, formatMoney } from '@/lib/obra-totales'
 import type { FormaPago, Obra } from '@/lib/types'
 import { FORMAS_PAGO } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -139,6 +140,26 @@ export function AplicarDescuentosAccordion({
         </Select>
       </div>
 
+      {/* ── Nota para el cliente ── */}
+      <div className="grid gap-2">
+        <Label htmlFor="nota-cliente" className="flex items-center gap-2">
+          <MessageSquareText className="size-3.5 text-primary" />
+          Nota para el cliente
+        </Label>
+        <Textarea
+          id="nota-cliente"
+          value={obra.notaCliente ?? ''}
+          onChange={(e) =>
+            setObra((o) => ({ ...o, notaCliente: e.target.value || undefined }))
+          }
+          placeholder="Aclaraciones, condiciones especiales, etc. (opcional)"
+          className="min-h-20"
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Se imprime en el PDF y se incluye en el mensaje de WhatsApp.
+        </p>
+      </div>
+
       {/* ── Descuento ── */}
       <div className="rounded-xl border border-border/60 bg-card/40 p-3.5 space-y-3">
         <div className="flex items-center justify-between gap-3">
@@ -218,6 +239,36 @@ export function AplicarDescuentosAccordion({
             Cada ítem se descompone a su precio base según el IVA que ya
             trae su línea (configurado en Ajustes) y el total se
             expresa al {Math.round(ivaConfig.ivaBasePct * 1000) / 10}% de IVA.
+          </p>
+        )}
+
+        {/* Solo tiene sentido cuando NO se discrimina IVA: es un dato
+            puramente visual, no afecta ningún cálculo de totales. */}
+        {!tieneIva && (
+          <div className="flex items-center gap-2 pt-1 border-t border-border/40">
+            <Checkbox
+              id="check-precio-con-iva"
+              checked={!!obra.mostrarPrecioConIva}
+              onCheckedChange={(v) =>
+                setObra((o) => ({ ...o, mostrarPrecioConIva: v === true }))
+              }
+              className="mt-2"
+            />
+            <Label
+              htmlFor="check-precio-con-iva"
+              className="text-sm font-normal text-muted-foreground cursor-pointer mt-2"
+            >
+              Mostrar precio final con IVA
+            </Label>
+          </div>
+        )}
+        {!tieneIva && obra.mostrarPrecioConIva && (
+          <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground animate-in fade-in slide-in-from-top-1 duration-200">
+            <Info className="size-3.5 shrink-0 mt-px" aria-hidden="true" />
+            Solo visual: agrega una línea "PRECIO CON IVA" en el resumen,
+            el PDF y el mensaje de WhatsApp, calculada al{' '}
+            {Math.round(ivaConfig.ivaBasePct * 1000) / 10}% sobre el
+            total. No cambia el total a cobrar ni el saldo de la obra.
           </p>
         )}
       </div>
@@ -307,6 +358,12 @@ export function AplicarDescuentosAccordion({
           value={totales.totalConIva}
           strong
         />
+        {!totales.incluyeIva && obra.mostrarPrecioConIva && (
+          <FilaResumen
+            label="Precio con IVA"
+            value={calcularPrecioFinalConIva(totales.totalConIva, ivaConfig.ivaBasePct)}
+          />
+        )}
       </div>
     </div>
   )

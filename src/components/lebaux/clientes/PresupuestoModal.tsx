@@ -1,6 +1,11 @@
 /**
- * components/lebaux/clientes/PresupuestoModal.tsx — Modal para imprimir o enviar por
- * WhatsApp el presupuesto de una obra.
+ * components/lebaux/clientes/PresupuestoModal.tsx — Modal para VER, imprimir o
+ * enviar por WhatsApp el presupuesto/venta de una obra (sin entrar al
+ * formulario de edición).
+ *
+ * Muestra el detalle de ítems (aberturas) tal cual quedaron cargados —
+ * descripción, cantidad, línea, color y precio — seguido del resumen de
+ * totales. Es de solo lectura: no permite modificar nada acá.
  *
  * Acciones:
  *   · Imprimir PDF: descarga un PDF del presupuesto (layout PresupuestoPdfLayout).
@@ -36,6 +41,7 @@ import { Button } from '@/components/ui/button'
 import { useAjustes, AJUSTES_DEFAULT, useMarcarPendientePresupuesto } from '@/hooks/queries'
 import {
   calcularTotalesObra,
+  calcularPrecioFinalConIva,
   construirMensajePresupuesto,
   formatMoney,
   formatWhatsApp,
@@ -44,7 +50,6 @@ import {
 import type { Cliente, Obra } from '@/lib/types'
 import { EstadoPresupuestoBadge } from '@/components/shared/EstadoPresupuestoBadge'
 import { PresupuestoPdfButton } from '@/components/pdf/PresupuestoPdfButton'
-
 interface Props {
   open: boolean
   onClose: () => void
@@ -92,8 +97,11 @@ export function PresupuestoModal({
         ivaPct: totales.ivaPct,
         ivaMonto: totales.ivaMonto,
         totalConIva: totales.totalConIva,
+        nota: obra.notaCliente,
+        mostrarPrecioConIva: obra.mostrarPrecioConIva,
+        ivaBasePctSistema: ajustes.sistema.ivaBasePct,
       }),
-    [cliente.nombre, obra.tipologias, totales, nombreEmpresa],
+    [cliente.nombre, obra.tipologias, totales, nombreEmpresa, obra.notaCliente, obra.mostrarPrecioConIva, ajustes.sistema.ivaBasePct],
   )
 
   function handleEnviarWhatsApp() {
@@ -149,6 +157,36 @@ export function PresupuestoModal({
         </SheetHeader>
 
         <SheetBody>
+          {/* Detalle de ítems: ver qué aberturas tiene esta obra, sin
+              entrar al formulario de edición. */}
+          <div className="rounded-xl border border-border/60 divide-y divide-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
+            {obra.tipologias.map((t) => {
+              const desglose = totales.desgloseItems.find((d) => d.tipologiaId === t.id)
+              const precioUnitarioAMostrar =
+                totales.incluyeIva && desglose && t.cantidad > 0
+                  ? desglose.totalAjustado / t.cantidad
+                  : t.precioUnitario
+              const subtotal = (t.cantidad || 0) * (precioUnitarioAMostrar || 0)
+              return (
+                <div key={t.id} className="px-3 py-2.5 space-y-0.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium truncate">
+                      {t.descripcion || 'Sin descripción'}
+                    </span>
+                    <span className="money text-sm font-semibold shrink-0">
+                      ${formatMoney(subtotal)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {t.cantidad} × ${formatMoney(precioUnitarioAMostrar)} · {t.linea} · {t.color}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
           {/* Resumen del presupuesto */}
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
@@ -191,7 +229,24 @@ export function PresupuestoModal({
               <span>Total</span>
               <span className="money font-display">${formatMoney(totales.totalConIva)}</span>
             </div>
+            {!totales.incluyeIva && obra.mostrarPrecioConIva && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Precio con IVA</span>
+                <span className="money">
+                  ${formatMoney(calcularPrecioFinalConIva(totales.totalConIva, ajustes.sistema.ivaBasePct))}
+                </span>
+              </div>
+            )}
           </div>
+
+          {obra.notaCliente && (
+            <div className="rounded-xl border border-dashed border-border/60 p-3 text-sm">
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                Nota para el cliente
+              </p>
+              <p className="whitespace-pre-wrap">{obra.notaCliente}</p>
+            </div>
+          )}
 
           {/* Acciones principales */}
           <div className="grid gap-2">
