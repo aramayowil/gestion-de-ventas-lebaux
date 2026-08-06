@@ -5,13 +5,24 @@
 
 # ─── Links cortos (acortador de PDFs para WhatsApp) ───
 # /l/AB3XZ9 → función `l.ts`, que busca el código en Supabase y hace
-# un 302 a la signed URL real. Va ANTES del catch-all del SPA de más
-# abajo: los redirects de Netlify se evalúan en orden, y si el
-# catch-all fuera primero se comería esta ruta sirviendo index.html
-# en vez de ejecutar la función.
+# un 302 a la signed URL real.
+#
+# IMPORTANTE: usamos splat (/l/*) en vez de un placeholder con nombre
+# (/l/:codigo) combinado con query string en el destino
+# (?codigo=:codigo). Esa segunda forma es conocida por fallar en
+# producción en Netlify —el placeholder no siempre se resuelve al
+# armar el query string del destino, aunque funcione en netlify dev
+# local— y el resultado es que el redirect no matchea y la request
+# cae al catch-all de más abajo, sirviendo index.html en vez de
+# ejecutar la función. Con /l/* → función/:splat, el código viaja en
+# el PATH de la función (event.path), que sí es confiable, y la
+# función lo extrae de ahí en vez de leerlo de queryStringParameters.
+#
+# Va ANTES del catch-all del SPA: los redirects de Netlify se evalúan
+# en orden, y si el catch-all fuera primero se comería esta ruta.
 [[redirects]]
-  from = "/l/:codigo"
-  to = "/.netlify/functions/l?codigo=:codigo"
+  from = "/l/*"
+  to = "/.netlify/functions/l/:splat"
   status = 200
 
 # Fallback de SPA: cualquier ruta que no sea un archivo real del build
