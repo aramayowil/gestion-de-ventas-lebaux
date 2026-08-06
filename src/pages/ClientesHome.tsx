@@ -443,48 +443,6 @@ export function ClientesHome({ onVerCliente }: Props) {
     obra: Obra
     pagos: Pago[]
   } | null>(null)
-  const [mostrarEncabezado, setMostrarEncabezado] = React.useState(true)
-  // Umbral único: si el toggle se decide por un solo punto de corte
-  // (ej. "scrollTop <= 8"), el rebote elástico de iOS y el scroll
-  // inercial hacen que scrollTop oscile un par de píxeles alrededor de
-  // ese punto varias veces por segundo — cada cruce dispara la
-  // animación del encabezado (200ms) y eso es lo que se ve/siente como
-  // "vibración" vertical en mobile. La solución es tratar mostrar/
-  // ocultar como dos umbrales distintos con espacio entre sí
-  // (histéresis) + un mínimo de desplazamiento por evento, y throttlear
-  // con requestAnimationFrame para no reevaluar en cada micro-tick.
-  const ultimoScrollTopRef = React.useRef(0)
-  const scrollRafPendienteRef = React.useRef(false)
-
-  function handleScrollListaClientes(event: React.UIEvent<HTMLDivElement>) {
-    const el = event.currentTarget
-    if (scrollRafPendienteRef.current) return
-    scrollRafPendienteRef.current = true
-    requestAnimationFrame(() => {
-      scrollRafPendienteRef.current = false
-      // Clamp: iOS puede reportar scrollTop negativo durante el rebote
-      // elástico en el tope; lo tratamos como si fuera 0.
-      const scrollTop = Math.max(0, el.scrollTop)
-      const anterior = ultimoScrollTopRef.current
-      const delta = scrollTop - anterior
-      ultimoScrollTopRef.current = scrollTop
-
-      // Cerca del tope: siempre mostrar, sin importar micro-oscilaciones.
-      if (scrollTop <= 24) {
-        setMostrarEncabezado((actual) => (actual ? actual : true))
-        return
-      }
-      // Zona muerta: un movimiento chico (rebote, inercia residual) no
-      // alcanza para togglear — hace falta un desplazamiento real en una
-      // dirección para decidir mostrar u ocultar.
-      const UMBRAL_DELTA = 12
-      if (delta > UMBRAL_DELTA) {
-        setMostrarEncabezado((actual) => (actual ? false : actual))
-      } else if (delta < -UMBRAL_DELTA) {
-        setMostrarEncabezado((actual) => (actual ? actual : true))
-      }
-    })
-  }
 
   return (
     <AppLayout
@@ -494,36 +452,17 @@ export function ClientesHome({ onVerCliente }: Props) {
       reserveBottomSpace={false}
     >
       <div className="min-w-0 shrink-0 pb-3">
-        <div
-          className={cn(
-            'grid transition-[grid-template-rows,opacity,transform] duration-200 ease-out',
-            mostrarEncabezado
-              ? 'grid-rows-[1fr] translate-y-0 opacity-100'
-              : 'grid-rows-[0fr] -translate-y-1 opacity-0',
-          )}
-          aria-hidden={!mostrarEncabezado}
-        >
+        <div>
           <div className="min-h-0 overflow-hidden">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-              Cartera comercial
-            </p>
             <h2 className="mt-1 font-display text-2xl font-bold tracking-tight">
               Clientes
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Consultá clientes, presupuestos, ventas y saldos.
-            </p>
           </div>
         </div>
 
         {/* Los controles quedan fuera del área desplazable. Solo la lista
           inferior hace scroll, así ninguna card puede atravesarlos. */}
-        <div
-          className={cn(
-            'space-y-2 transition-[margin] duration-200 ease-out',
-            mostrarEncabezado ? 'mt-3' : 'mt-0',
-          )}
-        >
+        <div className="mt-3 space-y-2">
           <div className="flex min-h-11 items-center gap-1.5 rounded-xl border border-border/70 bg-card/85 px-1.5 shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Search className="size-4" aria-hidden="true" />
@@ -726,10 +665,7 @@ export function ClientesHome({ onVerCliente }: Props) {
           </div>
         </div>
 
-        <div
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4"
-          onScroll={handleScrollListaClientes}
-        >
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4">
           {loadingClientes ? (
             <div className="grid gap-2">
               <ClienteCardSkeleton />
