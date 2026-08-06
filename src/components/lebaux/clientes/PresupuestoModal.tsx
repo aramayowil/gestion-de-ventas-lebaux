@@ -28,7 +28,7 @@
  */
 import * as React from 'react'
 import { toast } from 'sonner'
-import { Send, ArrowRight } from 'lucide-react'
+import { Send, ArrowRight, Loader2 } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -47,6 +47,7 @@ import {
   formatWhatsApp,
   normalizarWhatsApp,
 } from '@/lib/obra-totales'
+import { generarYSubirPdfPresupuesto } from '@/lib/pdf-generate'
 import type { Cliente, Obra } from '@/lib/types'
 import { EstadoPresupuestoBadge } from '@/components/shared/EstadoPresupuestoBadge'
 import { PresupuestoPdfButton } from '@/components/pdf/PresupuestoPdfButton'
@@ -73,6 +74,7 @@ export function PresupuestoModal({
   const ajustes = useAjustes(null).data ?? AJUSTES_DEFAULT
   const prefijoWhatsApp = ajustes.sistema.prefijoWhatsApp
   const nombreEmpresa = ajustes.empresa.nombre
+  const [enviandoWhatsApp, setEnviandoWhatsApp] = React.useState(false)
 
   const totales = React.useMemo(
     () =>
@@ -104,25 +106,62 @@ export function PresupuestoModal({
     [cliente.nombre, obra.tipologias, totales, nombreEmpresa, obra.notaCliente, obra.mostrarPrecioConIva, ajustes.sistema.ivaBasePct],
   )
 
-  function handleEnviarWhatsApp() {
+  async function handleEnviarWhatsApp() {
     const tel = normalizarWhatsApp(cliente.telefonoWhatsApp)
     if (!tel) {
       toast.error('El cliente no tiene WhatsApp cargado.')
       return
     }
-    // Si estaba en borrador o rechazado, marcar como pendiente
     if (
-      obra.estadoPresupuesto === 'borrador' ||
-      obra.estadoPresupuesto === 'rechazado'
+      !obra.tipologias.length ||
+      obra.tipologias.some((t) => !t.descripcion.trim() || t.cantidad <= 0)
     ) {
-      marcarPendienteMutation.mutateAsync(obra).catch((e) => {
-        toast.error(e instanceof Error ? e.message : 'Error al actualizar el presupuesto.')
-      })
-      toast.success('Presupuesto marcado como pendiente.')
+      toast.error(
+        'Completá la descripción y cantidad de todas las aberturas antes de enviar.',
+      )
+      return
     }
-    const numeroCompleto = prefijoWhatsApp + tel
-    const url = `https://wa.me/${numeroCompleto}?text=${encodeURIComponent(mensaje)}`
-    window.open(url, '_blank', 'noopener,noreferrer')
+
+    setEnviandoWhatsApp(true)
+    try {
+      // Genera el PDF del presupuesto y lo sube al bucket "comprobantes"
+      // para conseguir un link (signed URL, 30 días) que va dentro del
+      // mensaje de WhatsApp.
+      const linkPdf = await generarYSubirPdfPresupuesto({
+        cliente,
+        obra,
+        totales,
+        empresa: ajustes.empresa,
+        ivaBasePct: ajustes.sistema.ivaBasePct,
+      })
+
+      // Si estaba en borrador o rechazado, marcar como pendiente
+      if (
+        obra.estadoPresupuesto === 'borrador' ||
+        obra.estadoPresupuesto === 'rechazado'
+      ) {
+        try {
+          await marcarPendienteMutation.mutateAsync(obra)
+          toast.success('Presupuesto marcado como pendiente.')
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'Error al actualizar el presupuesto.')
+        }
+      }
+
+      const mensajeConLink = `${mensaje}\n\n📄 Ver PDF: ${linkPdf}`
+      const numeroCompleto = prefijoWhatsApp + tel
+      const url = `https://wa.me/${numeroCompleto}?text=${encodeURIComponent(mensajeConLink)}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (e) {
+      console.error('Error al generar/subir el PDF del presupuesto:', e)
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : 'No se pudo generar el link del PDF. Intentá de nuevo.',
+      )
+    } finally {
+      setEnviandoWhatsApp(false)
+    }
   }
 
   const estado = obra.estadoPresupuesto
@@ -264,9 +303,20 @@ export function PresupuestoModal({
               size="lg"
               className="w-full"
               onClick={handleEnviarWhatsApp}
+              disabled={enviandoWhatsApp}
+              aria-busy={enviandoWhatsApp}
             >
-              <Send className="size-4" />
-              Enviar por WhatsApp
+              {enviandoWhatsApp ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  Generando y enviando…
+                </>
+              ) : (
+                <>
+                  <Send className="size-4" />
+                  Enviar por WhatsApp
+                </>
+              )}
             </Button>
           </div>
 

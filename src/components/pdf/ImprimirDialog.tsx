@@ -28,7 +28,7 @@
  */
 
 import * as React from 'react'
-import { FileText, Receipt, Loader2, Check } from 'lucide-react'
+import { FileText, Receipt, Loader2, Check, Send } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -41,8 +41,13 @@ import { cn } from '@/lib/utils'
 import type { Cliente, Obra, Pago, TotalesObra } from '@/lib/types'
 import {
   generarPdf,
+  generarYSubirPdfComprobante,
   type TipoComprobante,
 } from '@/lib/pdf-generate'
+import {
+  construirMensajeComprobante,
+  normalizarWhatsApp,
+} from '@/lib/obra-totales'
 import { useAjustes, AJUSTES_DEFAULT } from '@/hooks/queries'
 import { toast } from 'sonner'
 
@@ -70,12 +75,15 @@ export function ImprimirDialog({
     permitirCombinado ? 'combinado' : 'recibo-solo',
   )
   const [generando, setGenerando] = React.useState(false)
-  const ivaBasePct = useAjustes(null).data?.sistema.ivaBasePct ?? AJUSTES_DEFAULT.sistema.ivaBasePct
+  const [enviandoWhatsApp, setEnviandoWhatsApp] = React.useState(false)
+  const ajustes = useAjustes(null).data ?? AJUSTES_DEFAULT
+  const ivaBasePct = ajustes.sistema.ivaBasePct
 
   React.useEffect(() => {
     if (open) {
       setSeleccion(permitirCombinado ? 'combinado' : 'recibo-solo')
       setGenerando(false)
+      setEnviandoWhatsApp(false)
     }
   }, [open, permitirCombinado])
 
@@ -119,6 +127,50 @@ export function ImprimirDialog({
       toast.error('No se pudo generar el PDF. Intentá nuevamente.')
     } finally {
       setGenerando(false)
+    }
+  }
+
+  async function handleEnviarWhatsApp() {
+    if (!seleccion || enviandoWhatsApp) return
+    const tel = normalizarWhatsApp(cliente.telefonoWhatsApp)
+    if (!tel) {
+      toast.error('El cliente no tiene WhatsApp cargado.')
+      return
+    }
+
+    setEnviandoWhatsApp(true)
+    try {
+      // Genera el PDF elegido (combinado o solo recibo) y lo sube al
+      // bucket "comprobantes" para conseguir el link que va en el mensaje.
+      const linkPdf = await generarYSubirPdfComprobante(seleccion, {
+        cliente,
+        obra,
+        pago,
+        totales,
+        ivaBasePct,
+      })
+      const mensaje = construirMensajeComprobante({
+        nombreCliente: cliente.nombre,
+        nombreEmpresa: ajustes.empresa.nombre,
+        numeroRecibo: pago.numeroRecibo,
+        montoPago: pago.monto,
+        formaPago: pago.formaPago,
+        saldoPendiente: totales.saldoPendiente,
+        linkPdf,
+      })
+      const numeroCompleto = ajustes.sistema.prefijoWhatsApp + tel
+      const url = `https://wa.me/${numeroCompleto}?text=${encodeURIComponent(mensaje)}`
+      window.open(url, '_blank', 'noopener,noreferrer')
+      onClose()
+    } catch (err) {
+      console.error('Error al generar/subir el PDF del comprobante:', err)
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo generar el link del PDF. Intentá de nuevo.',
+      )
+    } finally {
+      setEnviandoWhatsApp(false)
     }
   }
 
@@ -184,35 +236,61 @@ export function ImprimirDialog({
           })}
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="grid gap-2 pt-2">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={onClose}
+              disabled={generando || enviandoWhatsApp}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={handleGenerar}
+              disabled={!seleccion || generando || enviandoWhatsApp}
+              aria-busy={generando}
+              aria-label={
+                generando
+                  ? 'Generando PDF, por favor esperá'
+                  : 'Generar el PDF del comprobante seleccionado'
+              }
+            >
+              {generando ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  Generando…
+                </>
+              ) : (
+                <>
+                  <FileText className="size-4" aria-hidden="true" />
+                  Generar PDF
+                </>
+              )}
+            </Button>
+          </div>
           <Button
-            variant="outline"
-            className="flex-1"
-            onClick={onClose}
-            disabled={generando}
-          >
-            Cancelar
-          </Button>
-          <Button
-            className="flex-1"
-            onClick={handleGenerar}
-            disabled={!seleccion || generando}
-            aria-busy={generando}
+            variant="secondary"
+            className="w-full"
+            onClick={handleEnviarWhatsApp}
+            disabled={!seleccion || generando || enviandoWhatsApp}
+            aria-busy={enviandoWhatsApp}
             aria-label={
-              generando
-                ? 'Generando PDF, por favor esperá'
-                : 'Generar el PDF del comprobante seleccionado'
+              enviandoWhatsApp
+                ? 'Generando y enviando por WhatsApp, por favor esperá'
+                : `Enviar comprobante por WhatsApp a ${cliente.nombre || 'cliente'}`
             }
           >
-            {generando ? (
+            {enviandoWhatsApp ? (
               <>
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                Generando…
+                Generando y enviando…
               </>
             ) : (
               <>
-                <FileText className="size-4" aria-hidden="true" />
-                Generar PDF
+                <Send className="size-4" aria-hidden="true" />
+                Enviar por WhatsApp
               </>
             )}
           </Button>

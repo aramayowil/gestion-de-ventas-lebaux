@@ -308,7 +308,13 @@ export function ClienteDetalle({
 
   function abrirChatWhatsApp() {
     if (!telefonoWhatsAppNormalizado) return
-    const url = `https://wa.me/${telefonoWhatsAppNormalizado}`
+    // IMPORTANTE: hay que anteponer el prefijo de país (prefijoWhatsApp,
+    // ej. "54" para Argentina) al número de 10 dígitos. Sin esto, wa.me
+    // interpreta los primeros dígitos del número local como código de
+    // país — "381..." termina abriendo Serbia (+381) en vez de armar
+    // un WhatsApp argentino (+54 9 381...).
+    const numeroCompleto = prefijoWhatsApp + telefonoWhatsAppNormalizado
+    const url = `https://wa.me/${numeroCompleto}`
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 

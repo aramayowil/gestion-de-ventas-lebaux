@@ -22,7 +22,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
-import { useClientes, useCreateCliente, useUpdateCliente } from '@/hooks/queries'
+import {
+  useClientes,
+  useCreateCliente,
+  useUpdateCliente,
+} from '@/hooks/queries'
 import { useAjustes, AJUSTES_DEFAULT } from '@/hooks/queries'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { nuevoCliente, type Cliente } from '@/lib/types'
@@ -49,9 +53,13 @@ export function ClienteFormModal({
   const crearClienteMutation = useCreateCliente()
   const actualizarClienteMutation = useUpdateCliente()
   function buscarDuplicadoWhatsApp(tel: string, excluirId?: string) {
-    return clientes.find((c) => c.telefonoWhatsApp === tel && c.id !== excluirId)
+    return clientes.find(
+      (c) => c.telefonoWhatsApp === tel && c.id !== excluirId,
+    )
   }
-  const prefijoWhatsApp = useAjustes(null).data?.sistema.prefijoWhatsApp ?? AJUSTES_DEFAULT.sistema.prefijoWhatsApp
+  const prefijoWhatsApp =
+    useAjustes(null).data?.sistema.prefijoWhatsApp ??
+    AJUSTES_DEFAULT.sistema.prefijoWhatsApp
   const currentUser = useAuthStore((s) => s.currentUser)
 
   const [nombre, setNombre] = React.useState('')
@@ -89,22 +97,21 @@ export function ClienteFormModal({
     if (!sinNumero) {
       telNormalizado = normalizarWhatsApp(telefono)
       if (!telNormalizado) {
-        toast.error('El teléfono WhatsApp es obligatorio, o tildá "Sin número".')
+        toast.error(
+          'El teléfono WhatsApp es obligatorio, o tildá "Sin número".',
+        )
         return
       }
       if (!validarTelefonoArgentina(telNormalizado)) {
         toast.error(
           'El teléfono no es válido. Debe ser un número argentino de 10 dígitos ' +
-          '(sin el 0 inicial ni el 15). Ej: 381 572-9129.',
+            '(sin el 0 inicial ni el 15). Ej: 381 572-9129.',
         )
         return
       }
 
       // Validar duplicado por WhatsApp (solo aplica si hay número)
-      const dup = buscarDuplicadoWhatsApp(
-        telNormalizado,
-        clienteExistente?.id,
-      )
+      const dup = buscarDuplicadoWhatsApp(telNormalizado, clienteExistente?.id)
       if (dup) {
         toast.error(
           `Ya existe un cliente "${dup.nombre}" con ese WhatsApp. No pueden repetirse.`,
@@ -124,7 +131,9 @@ export function ClienteFormModal({
         await actualizarClienteMutation.mutateAsync(cliente)
         toast.success(`Cliente "${cliente.nombre}" actualizado.`)
         if (sinNumero) {
-          toast.warning(`"${cliente.nombre}" quedó guardado sin número de WhatsApp.`)
+          toast.warning(
+            `"${cliente.nombre}" quedó guardado sin número de WhatsApp.`,
+          )
         }
         onGuardado?.(cliente)
       } else {
@@ -139,13 +148,17 @@ export function ClienteFormModal({
         const clienteReal = creado ?? nuevo
         toast.success(`Cliente "${clienteReal.nombre}" creado.`)
         if (sinNumero) {
-          toast.warning(`"${clienteReal.nombre}" quedó guardado sin número de WhatsApp.`)
+          toast.warning(
+            `"${clienteReal.nombre}" quedó guardado sin número de WhatsApp.`,
+          )
         }
         onGuardado?.(clienteReal)
       }
       onClose()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al guardar el cliente.')
+      toast.error(
+        e instanceof Error ? e.message : 'Error al guardar el cliente.',
+      )
     }
   }
 
@@ -200,7 +213,8 @@ export function ClienteFormModal({
             <Label htmlFor="cli-tel">
               <span className="inline-flex items-center gap-1.5">
                 <MessageCircle className="size-3.5" aria-hidden="true" />
-                WhatsApp {!sinNumero && <span className="text-destructive">*</span>}
+                WhatsApp{' '}
+                {!sinNumero && <span className="text-destructive">*</span>}
               </span>
             </Label>
             <Input
@@ -212,21 +226,24 @@ export function ClienteFormModal({
               autoComplete="off"
               disabled={sinNumero}
               className={cn(
-                telValido === false && 'border-destructive/50 focus-visible:ring-destructive/30',
-                telValido === true && 'border-success/50 focus-visible:ring-success/30',
+                telValido === false &&
+                  'border-destructive/50 focus-visible:ring-destructive/30',
+                telValido === true &&
+                  'border-success/50 focus-visible:ring-success/30',
               )}
             />
             {telefono && !sinNumero && (
               <p
                 className={cn(
                   'text-[11px]',
-                  telValido
-                    ? 'text-success'
-                    : 'text-muted-foreground',
+                  telValido ? 'text-success' : 'text-muted-foreground',
                 )}
               >
                 {telValido ? (
-                  <>Se enviará a: <span className="money">{telefonoDisplay}</span></>
+                  <>
+                    Se enviará a:{' '}
+                    <span className="money">{telefonoDisplay}</span>
+                  </>
                 ) : (
                   <>Formato esperado: XXX XXX-XXXX (10 dígitos, sin 0 ni 15)</>
                 )}
@@ -249,7 +266,10 @@ export function ClienteFormModal({
 
             {sinNumero && (
               <p className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="size-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+                <AlertTriangle
+                  className="size-3.5 shrink-0 mt-0.5"
+                  aria-hidden="true"
+                />
                 <span>
                   Vas a poder crear el cliente igual, pero va a quedar marcado
                   con un aviso de "sin número" hasta que lo cargues.
@@ -269,7 +289,10 @@ export function ClienteFormModal({
                 onCheckedChange={(v) => setIsMayorista(v === true)}
               />
               <span className="text-sm inline-flex items-center gap-1.5">
-                <Store className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                <Store
+                  className="size-3.5 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 Cliente mayorista
               </span>
             </label>
@@ -283,11 +306,17 @@ export function ClienteFormModal({
           <Button
             className="h-11"
             onClick={handleGuardar}
-            disabled={crearClienteMutation.isPending || actualizarClienteMutation.isPending}
+            disabled={
+              crearClienteMutation.isPending ||
+              actualizarClienteMutation.isPending
+            }
           >
-            {crearClienteMutation.isPending || actualizarClienteMutation.isPending
+            {crearClienteMutation.isPending ||
+            actualizarClienteMutation.isPending
               ? 'Guardando...'
-              : clienteExistente ? 'Guardar cambios' : 'Crear cliente'}
+              : clienteExistente
+                ? 'Guardar cambios'
+                : 'Crear cliente'}
           </Button>
         </SheetFooter>
       </SheetContent>

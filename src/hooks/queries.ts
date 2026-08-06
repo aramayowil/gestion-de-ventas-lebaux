@@ -849,9 +849,8 @@ export function useTestEdgeFunction() {
         { body: { _diagnostico: true } },
       )
 
-      const status = (
-        error as { context?: { status?: number } } | undefined
-      )?.context?.status
+      const status = (error as { context?: { status?: number } } | undefined)
+        ?.context?.status
 
       const ctx = (
         error as { context?: { json?: () => Promise<{ error?: string }> } }
@@ -887,7 +886,11 @@ export function useTestEdgeFunction() {
         return { ok: true, status: 200, message: data.error }
       }
 
-      return { ok: true, status: status ?? 200, message: 'Función activa y respondiendo.' }
+      return {
+        ok: true,
+        status: status ?? 200,
+        message: 'Función activa y respondiendo.',
+      }
     },
   })
 }
@@ -989,7 +992,28 @@ export function useActualizarAjustes() {
       vendedorId: string | null
       datos: DatosAjustes
     }) => {
+      // IMPORTANTE: `vendedor_id` es `unique`, pero una unique constraint
+      // estándar de Postgres NO considera dos NULL como iguales. Para la
+      // fila global (vendedorId === null) eso significa que un
+      // `upsert({ vendedor_id: null, ... })` sin más nunca encuentra
+      // conflicto contra la fila global existente, y en cambio INSERTA
+      // una fila nueva cada vez que se guarda. El resultado: el guardado
+      // "parece" funcionar (no tira error), pero al recargar la lectura
+      // (`.limit(1)`) puede traer una fila vieja distinta a la recién
+      // guardada — los cambios se "pierden".
+      //
+      // Solución: resolvemos primero el `id` de la fila existente (propia
+      // del vendedor, o global) y hacemos upsert por `id` — la primary
+      // key real, que sí funciona con la resolución de conflicto por
+      // default de Supabase. Si no existe fila todavía, se inserta una
+      // nueva (comportamiento normal de upsert).
+      const buscar = supabase.from('ajustes').select('id')
+      const { data: existente } = vendedorId
+        ? await buscar.eq('vendedor_id', vendedorId).limit(1).maybeSingle()
+        : await buscar.is('vendedor_id', null).limit(1).maybeSingle()
+
       const { error } = await supabase.from('ajustes').upsert({
+        ...(existente ? { id: existente.id } : {}),
         vendedor_id: vendedorId,
         empresa: datos.empresa,
         sistema: datos.sistema,

@@ -97,9 +97,7 @@ export function totalAbonadoDePagos(pagos: Pago[]): number {
  */
 export function totalCobradoDePagos(pagos: Pago[]): number {
   return redondearMoneda(
-    pagos
-      .filter((p) => !p.anulado)
-      .reduce((acc, p) => acc + (p.monto || 0), 0),
+    pagos.filter((p) => !p.anulado).reduce((acc, p) => acc + (p.monto || 0), 0),
   )
 }
 
@@ -123,7 +121,10 @@ export function calcularRecargoTarjeta(
   montoBase: number,
   recargoTarjetaPct: number,
 ): number {
-  return redondearMoneda(calcularMontoConRecargoTarjeta(montoBase, recargoTarjetaPct) - (montoBase || 0))
+  return redondearMoneda(
+    calcularMontoConRecargoTarjeta(montoBase, recargoTarjetaPct) -
+      (montoBase || 0),
+  )
 }
 
 /**
@@ -175,7 +176,9 @@ export function calcularTotalesObra(
     // Camino histórico: sin discriminar IVA, todo sobre totalBruto.
     const descuentoMonto = redondearMoneda(totalBruto * descuentoPct)
     const totalConDescuento = redondearMoneda(totalBruto - descuentoMonto)
-    const saldoPendiente = redondearMoneda(Math.max(0, totalConDescuento - totalAbonado))
+    const saldoPendiente = redondearMoneda(
+      Math.max(0, totalConDescuento - totalAbonado),
+    )
     return {
       totalBruto,
       descuentoPct,
@@ -211,7 +214,9 @@ export function calcularTotalesObra(
   // X% de un lado o del otro es matemáticamente equivalente, el IVA se
   // reduce proporcionalmente). `descuentoBase` solo cambia qué monto
   // de descuento se muestra en el desglose del presupuesto.
-  const totalAjustadoConDescuento = redondearMoneda(totalAjustadoIva * (1 - descuentoPct))
+  const totalAjustadoConDescuento = redondearMoneda(
+    totalAjustadoIva * (1 - descuentoPct),
+  )
   const descuentoMonto =
     descuentoBase === 'neto'
       ? redondearMoneda(totalAjustadoIva - totalAjustadoConDescuento)
@@ -220,10 +225,16 @@ export function calcularTotalesObra(
   const totalConDescuento = redondearMoneda(totalBruto * (1 - descuentoPct))
   // El total ajustado ya "contiene" el IVA base: se descompone para
   // mostrar precio base (neto) + IVA por separado en el resumen final.
-  const totalBaseConDescuento = redondearMoneda(totalAjustadoConDescuento / (1 + ivaBasePct))
-  const ivaMonto = redondearMoneda(totalAjustadoConDescuento - totalBaseConDescuento)
+  const totalBaseConDescuento = redondearMoneda(
+    totalAjustadoConDescuento / (1 + ivaBasePct),
+  )
+  const ivaMonto = redondearMoneda(
+    totalAjustadoConDescuento - totalBaseConDescuento,
+  )
   const totalConIva = totalAjustadoConDescuento
-  const saldoPendiente = redondearMoneda(Math.max(0, totalConIva - totalAbonado))
+  const saldoPendiente = redondearMoneda(
+    Math.max(0, totalConIva - totalAbonado),
+  )
 
   return {
     totalBruto,
@@ -389,7 +400,10 @@ export function normalizarWhatsApp(v: string | undefined | null): string {
  *   "3815729129" → "381 572 9129"
  *   "5493815729129" → "+54 9 381 572 9129"
  */
-export function formatWhatsApp(v: string | undefined | null, prefijo = '54'): string {
+export function formatWhatsApp(
+  v: string | undefined | null,
+  prefijo = '54',
+): string {
   const n = normalizarWhatsApp(v)
   if (!n) return ''
   if (n.startsWith(prefijo) && n.length > 10) {
@@ -414,19 +428,46 @@ export function formatWhatsApp(v: string | undefined | null, prefijo = '54'): st
  * Formatea un teléfono MIENTRAS se tipea/pega en el input del form
  * de cliente. Aplica la máscara "XXX XXX-XXXX" (3 + 3 + 4).
  *
- * Recibe el valor crudo del input, lo normaliza (quitando 0, 15, 54, 9)
- * y lo formatea con espacios y guion.
+ * Importante: la limpieza de prefijos (0 inicial, 15, +54 9) que hace
+ * `normalizarWhatsApp` está pensada para un número PEGADO completo
+ * (ej. copiado desde el contacto de WhatsApp), no para dígitos sueltos.
+ * Si la aplicáramos en cada tecla, un usuario tipeando "0381..." (como
+ * se suele escribir un teléfono local) vería su "0" comerse en cuanto
+ * lo tipea, y un número que simplemente empieza pareciendo "549..."
+ * quedaría cortado por la mitad. Por eso acá:
+ *
+ *   · Si el valor tiene 11+ dígitos, asumimos que fue PEGADO (no se
+ *     tipea así de rápido) y aplicamos la normalización completa.
+ *   · Si tiene 10 o menos, el usuario lo está tipeando dígito a dígito:
+ *     solo quitamos lo no numérico y aplicamos la máscara, sin tocar
+ *     prefijos.
  *
  *   "381"           → "381"
  *   "3815"          → "381 5"
  *   "381572"        → "381 572"
  *   "3815729"       → "381 572-9"
  *   "3815729129"    → "381 572-9129"
- *   "+54 9 381 572 9129" → "381 572-9129"
+ *   "0381572912"    → "381 572-912" (0 inicial se descarta al tipear)
+ *   "+54 9 381 572 9129" → "381 572-9129" (pegado, sí se normaliza)
  */
 export function formatearTelefonoInput(v: string): string {
-  const n = normalizarWhatsApp(v)
+  const soloDigitos = v.replace(/\D/g, '')
+
+  let n: string
+  if (soloDigitos.length >= 11) {
+    // Pegado (nadie tipea 11+ dígitos de una): aplicamos la limpieza
+    // completa de prefijos (+54, 9, 15, etc).
+    n = normalizarWhatsApp(soloDigitos)
+  } else {
+    // Tipeado dígito a dígito: la única normalización segura de hacer
+    // sobre un valor parcial es sacar el "0" inicial del formato local
+    // ("0381...") — eso sí es inequívoco letra por letra. El resto de
+    // reglas (15, 54/9) requieren ver el número completo para no dar
+    // falsos positivos, así que no se tocan acá.
+    n = soloDigitos.startsWith('0') ? soloDigitos.slice(1) : soloDigitos
+  }
   if (!n) return ''
+
   // Limitar a 10 dígitos (número argentino sin prefijos)
   const digits = n.slice(0, 10)
   if (digits.length <= 3) return digits
@@ -448,7 +489,9 @@ export function formatearTelefonoInput(v: string): string {
  *   - Más de 10 dígitos (algo quedó sin normalizar)
  *   - Vacío
  */
-export function validarTelefonoArgentina(v: string | undefined | null): boolean {
+export function validarTelefonoArgentina(
+  v: string | undefined | null,
+): boolean {
   const n = normalizarWhatsApp(v)
   if (!n) return false
   // 10 dígitos, empezando con dígitos válidos de área argentina (1-3)
@@ -480,6 +523,10 @@ export function construirMensajePresupuesto(opts: {
   /** IVA base del sistema (Ajustes), usado solo para calcular la línea
    * anterior cuando corresponde. */
   ivaBasePctSistema?: number
+  /** Link de descarga del PDF (signed URL de Supabase Storage, 30 días).
+   * Si viene, se agrega como última línea del mensaje. Si no viene, el
+   * mensaje queda igual que antes (solo texto, sin link). */
+  linkPdf?: string
 }): string {
   const lineas: string[] = []
   lineas.push(`*${opts.nombreEmpresa}*`)
@@ -491,9 +538,7 @@ export function construirMensajePresupuesto(opts: {
   opts.items.forEach((it, i) => {
     if (!it.descripcion.trim()) return
     const subtotal = it.cantidad * it.precioUnitario
-    lineas.push(
-      `${i + 1}. ${it.cantidad}x ${it.descripcion}`,
-    )
+    lineas.push(`${i + 1}. ${it.cantidad}x ${it.descripcion}`)
     lineas.push(`   $${formatMoney(subtotal)}`)
   })
 
@@ -501,17 +546,24 @@ export function construirMensajePresupuesto(opts: {
   lineas.push('─'.repeat(20))
   lineas.push(`Total bruto: $${formatMoney(opts.totalBruto)}`)
   if (opts.descuentoMonto > 0) {
-    lineas.push(`Descuento (${Math.round(opts.descuentoPct * 100)}%): −$${formatMoney(opts.descuentoMonto)}`)
+    lineas.push(
+      `Descuento (${Math.round(opts.descuentoPct * 100)}%): −$${formatMoney(opts.descuentoMonto)}`,
+    )
   }
   if (opts.incluyeIva && opts.ivaMonto) {
     lineas.push(
       `IVA (${Math.round((opts.ivaPct || 0) * 1000) / 10}%): +$${formatMoney(opts.ivaMonto)}`,
     )
   }
-  const totalFinal = opts.incluyeIva ? (opts.totalConIva ?? opts.totalConDescuento) : opts.totalConDescuento
+  const totalFinal = opts.incluyeIva
+    ? (opts.totalConIva ?? opts.totalConDescuento)
+    : opts.totalConDescuento
   lineas.push(`*TOTAL: $${formatMoney(totalFinal)}*`)
   if (!opts.incluyeIva && opts.mostrarPrecioConIva && opts.ivaBasePctSistema) {
-    const precioConIva = calcularPrecioFinalConIva(totalFinal, opts.ivaBasePctSistema)
+    const precioConIva = calcularPrecioFinalConIva(
+      totalFinal,
+      opts.ivaBasePctSistema,
+    )
     lineas.push(`PRECIO CON IVA: $${formatMoney(precioConIva)}`)
   }
   if (opts.nota && opts.nota.trim()) {
@@ -520,6 +572,53 @@ export function construirMensajePresupuesto(opts: {
   }
   lineas.push('')
   lineas.push('Quedamos a disposición por cualquier consulta.')
+  if (opts.linkPdf) {
+    lineas.push('')
+    lineas.push(`📄 Ver PDF: ${opts.linkPdf}`)
+    lineas.push(
+      `_Este link es válido por 30 días. Si venció, solicitá uno nuevo a ${opts.nombreEmpresa}._`,
+    )
+  }
+  return lineas.join('\n')
+}
+
+/**
+ * Construye un mensaje de WhatsApp para un comprobante de pago (recibo o
+ * combinado con acta de entrega). A diferencia de `construirMensajePresupuesto`
+ * (que detalla ítems y descuentos), este mensaje es más corto: confirma el
+ * pago recibido y linkea al PDF. Pensado para `wa.me/<numero>?text=<...>`.
+ */
+export function construirMensajeComprobante(opts: {
+  nombreCliente: string
+  nombreEmpresa: string
+  numeroRecibo: number
+  montoPago: number
+  formaPago?: string
+  saldoPendiente: number
+  /** Link de descarga del PDF (signed URL de Supabase Storage, 30 días). */
+  linkPdf: string
+}): string {
+  const nro = String(opts.numeroRecibo).padStart(4, '0')
+  const lineas: string[] = []
+  lineas.push(`*${opts.nombreEmpresa}*`)
+  lineas.push(`Recibo N° ${nro} — *${opts.nombreCliente}*`)
+  lineas.push('')
+  lineas.push(`Pago recibido: $${formatMoney(opts.montoPago)}`)
+  if (opts.formaPago) {
+    lineas.push(`Forma de pago: ${opts.formaPago}`)
+  }
+  if (opts.saldoPendiente > 0) {
+    lineas.push(`Saldo pendiente: $${formatMoney(opts.saldoPendiente)}`)
+  } else {
+    lineas.push('Saldo pendiente: $0 (obra saldada)')
+  }
+  lineas.push('')
+  lineas.push('Quedamos a disposición por cualquier consulta.')
+  lineas.push('')
+  lineas.push(`📄 Ver PDF: ${opts.linkPdf}`)
+  lineas.push(
+    `_Este link es válido por 30 días. Si venció, solicitá uno nuevo a ${opts.nombreEmpresa}._`,
+  )
   return lineas.join('\n')
 }
 
@@ -566,4 +665,3 @@ export function diasHastaVencimiento(
   const diff = new Date(venc).getTime() - Date.now()
   return Math.ceil(diff / (24 * 60 * 60 * 1000))
 }
-

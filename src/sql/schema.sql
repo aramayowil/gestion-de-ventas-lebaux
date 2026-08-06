@@ -696,5 +696,106 @@ alter table public.obras
 
 
 -- ════════════════════════════════════════════════════════════════
+-- MIGRACIÓN: bucket "comprobantes" (PDFs para enviar por WhatsApp)
+-- ════════════════════════════════════════════════════════════════
+-- Los PDFs de presupuestos, ventas y recibos se suben acá para poder
+-- generar un link temporal (signed URL, 30 días) y mandarlo por
+-- WhatsApp junto al mensaje de texto. El bucket es PRIVADO: nadie
+-- puede leerlo sin una signed URL, ya que los PDFs tienen montos y
+-- datos del cliente.
+--
+-- Path de cada archivo: {obra_id}/{tipo}.pdf
+--   Ej: "a1b2c3.../presupuesto.pdf"
+--       "a1b2c3.../pago-0007-combinado.pdf"
+--       "a1b2c3.../pago-0007-recibo.pdf"
+-- Siempre se sube con upsert=true, así que regenerar un PDF pisa el
+-- anterior en vez de acumular archivos viejos.
+--
+-- IMPORTANTE: este bloque crea el bucket, pero las políticas de
+-- storage.objects deben crearse UNA POR UNA porque Postgres no
+-- permite "create policy if not exists". Si ya corriste este bloque
+-- antes, los "drop policy if exists" evitan el error de duplicado.
+
+insert into storage.buckets (id, name, public)
+values ('comprobantes', 'comprobantes', false)
+on conflict (id) do nothing;
+
+-- INSERT / UPDATE (upsert): cualquier usuario autenticado con fila en
+-- public.users puede subir. No hace falta filtrar por carpeta como en
+-- las tablas de negocio: el path ya empieza con el obra_id, y el
+-- acceso de LECTURA (lo sensible) no es público — se controla más
+-- abajo con SELECT.
+drop policy if exists "comprobantes_insert_autenticado" on storage.objects;
+create policy "comprobantes_insert_autenticado"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'comprobantes'
+    and exists (select 1 from public.users u where u.id = auth.uid())
+  );
+
+drop policy if exists "comprobantes_update_autenticado" on storage.objects;
+create policy "comprobantes_update_autenticado"
+  on storage.objects for update
+  using (
+    bucket_id = 'comprobantes'
+    and exists (select 1 from public.users u where u.id = auth.uid())
+  );
+
+-- SELECT: solo necesario para que el propio cliente de Supabase (JS)
+-- pueda generar la signed URL desde el front autenticado. El link
+-- firmado resultante es lo que de verdad viaja por WhatsApp; esta
+-- policy NO expone el archivo públicamente.
+drop policy if exists "comprobantes_select_autenticado" on storage.objects;
+create policy "comprobantes_select_autenticado"
+  on storage.objects for select
+  using (
+    bucket_id = 'comprobantes'
+    and exists (select 1 from public.users u where u.id = auth.uid())
+  );
+
+drop policy if exists "comprobantes_delete_autenticado" on storage.objects;
+create policy "comprobantes_delete_autenticado"
+  on storage.objects for delete
+  using (
+    bucket_id = 'comprobantes'
+    and exists (select 1 from public.users u where u.id = auth.uid())
+  );
+
+
+-- ════════════════════════════════════════════════════════════════
 -- FIN DEL SCRIPT
 -- ════════════════════════════════════════════════════════════════
+
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRACIÓN: limpieza de filas duplicadas en `ajustes`
+-- ════════════════════════════════════════════════════════════════
+-- Bug histórico: como una unique constraint estándar de Postgres no
+-- considera dos NULL como iguales, el `upsert` de la config global
+-- (vendedor_id = null) insertaba una fila nueva en cada guardado en
+-- vez de actualizar la existente. Esto puede haber dejado varias
+-- filas con vendedor_id null en la base. Nos quedamos con la más
+-- reciente (por actualizado_en) y borramos el resto — es seguro
+-- correr esto más de una vez.
+delete from public.ajustes a
+using public.ajustes b
+where a.vendedor_id is null
+  and b.vendedor_id is null
+  and a.id <> b.id
+  and (
+    a.actualizado_en < b.actualizado_en
+    or (a.actualizado_en = b.actualizado_en and a.id < b.id)
+  );
+
+-- Mismo problema podría haber ocurrido por vendedor (aunque menos
+-- probable, ya que ahí vendedor_id no es null y el conflicto se
+-- resuelve bien). Por las dudas, misma limpieza por vendedor_id.
+delete from public.ajustes a
+using public.ajustes b
+where a.vendedor_id is not null
+  and a.vendedor_id = b.vendedor_id
+  and a.id <> b.id
+  and (
+    a.actualizado_en < b.actualizado_en
+    or (a.actualizado_en = b.actualizado_en and a.id < b.id)
+  );
