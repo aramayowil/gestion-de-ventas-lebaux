@@ -164,10 +164,11 @@ create table if not exists public.pagos (
   obra_id         uuid not null references public.obras(id) on delete cascade,
   numero_recibo   integer not null,
   fecha           timestamptz not null default now(),
-  -- monto real cobrado/registrado (con recargo de tarjeta incluido, si aplica).
+  -- monto real cobrado/registrado (con recargo de tarjeta o cheque
+  -- incluido, si aplica).
   monto           numeric(12,2) not null default 0,
   -- monto que efectivamente cancela saldo de la obra (sin recargo de
-  -- tarjeta). Nullable: pagos legacy no lo tienen, se asume igual a `monto`.
+  -- tarjeta/cheque). Nullable: pagos legacy no lo tienen, se asume igual a `monto`.
   monto_base      numeric(12,2),
   forma_pago      text,
   nota            text,

@@ -128,6 +128,32 @@ export function calcularRecargoTarjeta(
 }
 
 /**
+ * Monto REAL a cobrarle al cliente cuando paga con Cheque: al monto base
+ * se le suma el recargo configurado (`recargoChequePct`), que traslada el
+ * IVA que ese cheque genera. Misma mecánica que `calcularMontoConRecargoTarjeta`.
+ */
+export function calcularMontoConRecargoCheque(
+  montoBase: number,
+  recargoChequePct: number,
+): number {
+  return calcularMontoConRecargoTarjeta(montoBase, recargoChequePct)
+}
+
+/**
+ * Devuelve solo el monto del recargo/IVA (la diferencia entre lo que se
+ * le cobra al cliente con cheque y el monto base que cancela del saldo).
+ */
+export function calcularRecargoCheque(
+  montoBase: number,
+  recargoChequePct: number,
+): number {
+  return redondearMoneda(
+    calcularMontoConRecargoCheque(montoBase, recargoChequePct) -
+      (montoBase || 0),
+  )
+}
+
+/**
  * Calcula todos los totales de una obra, incluyendo el desglose de IVA
  * por línea cuando `incluyeIva` está activo.
  *

@@ -426,11 +426,12 @@ export function ReciboPagoPdfLayout({ cliente, obra, pago, totales }: Props) {
               <Text style={styles.pagoDestacadoMonto}>
                 ${formatMoney(pago.monto)}
               </Text>
-              {pago.formaPago === 'Tarjeta' &&
+              {(pago.formaPago === 'Tarjeta' || pago.formaPago === 'Cheque') &&
                 pago.montoBase != null &&
                 pago.montoBase < pago.monto && (
                   <Text style={styles.pagoDestacadoSub}>
-                    Incluye recargo por tarjeta · Se descuenta $
+                    Incluye recargo por{' '}
+                    {pago.formaPago === 'Tarjeta' ? 'tarjeta' : 'cheque (IVA)'} · Se descuenta $
                     {formatMoney(pago.montoBase)} del saldo
                   </Text>
                 )}

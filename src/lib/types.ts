@@ -15,6 +15,7 @@ export type FormaPago =
   | 'Efectivo'
   | 'Transferencia'
   | 'Tarjeta'
+  | 'Cheque'
   | 'A convenir'
 
 /**
@@ -139,12 +140,13 @@ export interface Pago {
   obraId: string
   numeroRecibo: number // correlativo global
   fecha: string // ISO
-  /** Monto REAL cobrado/registrado. Si la forma de pago es 'Tarjeta',
-   * ya incluye el recargo (montoBase × (1 + recargoTarjetaPct)). Para
-   * cualquier otra forma de pago, monto === montoBase. */
+  /** Monto REAL cobrado/registrado. Si la forma de pago es 'Tarjeta' o
+   * 'Cheque', ya incluye el recargo correspondiente (montoBase × (1 +
+   * recargoTarjetaPct | recargoChequePct)). Para cualquier otra forma de
+   * pago, monto === montoBase. */
   monto: number
   /** Monto que efectivamente descuenta del saldo pendiente de la obra
-   * (equivalente efectivo/transferencia, SIN el recargo de tarjeta).
+   * (equivalente efectivo/transferencia, SIN el recargo de tarjeta/cheque).
    * Si no está definido (pagos legacy), se asume igual a `monto`. */
   montoBase?: number
   formaPago?: FormaPago
@@ -250,6 +252,11 @@ export interface ConfigSistema {
    * de cualquier pago (inicial o posterior) realizado con Tarjeta.
    * Configurable desde Ajustes. */
   recargoTarjetaPct: number
+  /** Recargo (0..1) que se aplica sobre el monto base de cualquier pago
+   * (inicial o posterior) realizado con Cheque — traslada al cliente el
+   * IVA que ese cheque genera. Configurable desde Ajustes; por defecto
+   * igual al IVA base del sistema (`ivaBasePct`). */
+  recargoChequePct: number
 }
 
 /* ────────────── Fábricas ────────────── */

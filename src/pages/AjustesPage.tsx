@@ -540,6 +540,31 @@ export function AjustesPage({ onVolver }: Props) {
                 registrar un pago sobre una venta existente.
               </p>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reg-recargo-cheque">Recargo por pago con Cheque (IVA %)</Label>
+              <NumericInput
+                id="reg-recargo-cheque"
+                allowDecimals
+                min={0}
+                max={100}
+                value={
+                  Math.round(
+                    (sistemaLocal.recargoChequePct ?? SISTEMA_DEFAULT.recargoChequePct) * 1000,
+                  ) / 10
+                }
+                onChange={(v) =>
+                  setSistemaLocal((s) => ({ ...s, recargoChequePct: v / 100 }))
+                }
+                placeholder="21"
+                className="h-11"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Se suma al monto base de cualquier pago (inicial o posterior)
+                que el vendedor registre con forma de pago Cheque, para
+                trasladarle al cliente el IVA que ese cheque genera. Igual
+                mecánica que el recargo de Tarjeta.
+              </p>
+            </div>
             <Button
               onClick={handleGuardarSistema}
               disabled={actualizarAjustes.isPending}

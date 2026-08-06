@@ -37,8 +37,16 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { AccordionSection } from '@/components/ui/accordion-section'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { useAjustes, AJUSTES_DEFAULT } from '@/hooks/queries'
-import { calcularTotalesObra, calcularPrecioFinalConIva, formatMoney } from '@/lib/obra-totales'
+import {
+  calcularTotalesObra,
+  calcularPrecioFinalConIva,
+  calcularMontoConRecargoTarjeta,
+  calcularMontoConRecargoCheque,
+  formatMoney,
+  redondearMoneda,
+} from '@/lib/obra-totales'
 import type { FormaPago, Obra } from '@/lib/types'
 import { FORMAS_PAGO } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -95,6 +103,14 @@ export function AplicarDescuentosAccordion({
   const tieneDescuento = obra.descuentoPct > 0
   const tieneIva = !!obra.incluyeIva
   const descuentoBase = obra.descuentoBase ?? 'final'
+
+  // ── Pago inicial: recargo por Tarjeta/Cheque y monto real a cobrar ──
+  const pagoInicialBaseNum = redondearMoneda(pagoInicialMonto || 0)
+  const pagoInicialEsTarjeta = pagoInicialForma === 'Tarjeta'
+  const pagoInicialEsCheque = pagoInicialForma === 'Cheque'
+  const pagoInicialConRecargo = pagoInicialEsCheque
+    ? calcularMontoConRecargoCheque(pagoInicialBaseNum, sistema.recargoChequePct)
+    : calcularMontoConRecargoTarjeta(pagoInicialBaseNum, sistema.recargoTarjetaPct)
 
   function toggleDescuento(activar: boolean) {
     setObra((o) => ({
@@ -293,14 +309,25 @@ export function AplicarDescuentosAccordion({
                 <Label htmlFor="pago-ini-monto" className="text-xs text-muted-foreground">
                   Monto
                 </Label>
-                <MoneyInput
-                  id="pago-ini-monto"
-                  allowDecimals
-                  className="h-11"
-                  value={pagoInicialMonto}
-                  onChange={setPagoInicialMonto}
-                  placeholder="0"
-                />
+                <div className="flex gap-2">
+                  <MoneyInput
+                    id="pago-ini-monto"
+                    allowDecimals
+                    className="h-11 flex-1"
+                    value={pagoInicialMonto}
+                    onChange={setPagoInicialMonto}
+                    placeholder="0"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 shrink-0"
+                    onClick={() => setPagoInicialMonto(redondearMoneda(totales.totalConIva))}
+                    disabled={totales.totalConIva <= 0}
+                  >
+                    Saldo completo
+                  </Button>
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label className="text-xs text-muted-foreground">Forma de pago</Label>
@@ -320,6 +347,18 @@ export function AplicarDescuentosAccordion({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          )}
+          {pagoInicialActivo && (pagoInicialEsTarjeta || pagoInicialEsCheque) && pagoInicialBaseNum > 0 && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+              <p className="text-xs text-muted-foreground">
+                {pagoInicialEsTarjeta
+                  ? `Con tarjeta (recargo del ${Math.round(sistema.recargoTarjetaPct * 100)}%), a este cliente hay que cobrarle:`
+                  : `Con cheque (IVA del ${Math.round(sistema.recargoChequePct * 100)}%), a este cliente hay que cobrarle:`}
+              </p>
+              <p className="text-base font-semibold text-primary">
+                ${formatMoney(pagoInicialConRecargo)}
+              </p>
             </div>
           )}
           {pagoInicialActivo && pagoInicialMonto > totales.totalConIva && (

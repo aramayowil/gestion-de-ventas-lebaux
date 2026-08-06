@@ -37,6 +37,7 @@ import {
 import {
   calcularTotalesObra,
   calcularMontoConRecargoTarjeta,
+  calcularMontoConRecargoCheque,
   formatMoney,
   redondearMoneda,
 } from '@/lib/obra-totales'
@@ -58,6 +59,7 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
   const cliente = clientes.find((c) => c.id === obra.clienteId)
   const { data: ajustes } = useAjustes(null)
   const recargoTarjetaPct = ajustes?.sistema.recargoTarjetaPct ?? AJUSTES_DEFAULT.sistema.recargoTarjetaPct
+  const recargoChequePct = ajustes?.sistema.recargoChequePct ?? AJUSTES_DEFAULT.sistema.recargoChequePct
 
   const totalesActuales = React.useMemo(
     () => calcularTotalesObra(obra, pagos),
@@ -67,8 +69,8 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
 
   // `monto` es el monto BASE que el vendedor quiere cubrir del saldo
   // (equivalente efectivo/transferencia). Si la forma de pago es
-  // Tarjeta, el monto REAL a cobrarle al cliente se calcula aparte
-  // (ver `montoConRecargo` más abajo) y es ESE el que se registra.
+  // Tarjeta o Cheque, el monto REAL a cobrarle al cliente se calcula
+  // aparte (ver `montoConRecargo` más abajo) y es ESE el que se registra.
   const [monto, setMonto] = React.useState(0)
   const [fecha, setFecha] = React.useState(
     new Date().toISOString().slice(0, 10),
@@ -89,11 +91,15 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
 
   const montoBaseNum = redondearMoneda(monto || 0)
   const esTarjeta = formaPago === 'Tarjeta'
-  // Monto REAL a cobrarle al cliente si paga con tarjeta (con recargo).
-  const montoConRecargo = calcularMontoConRecargoTarjeta(montoBaseNum, recargoTarjetaPct)
-  // El monto que se registra como pago real: con recargo si es tarjeta,
-  // igual al base para cualquier otra forma de pago.
-  const montoARegistrar = esTarjeta ? montoConRecargo : montoBaseNum
+  const esCheque = formaPago === 'Cheque'
+  // Monto REAL a cobrarle al cliente si paga con tarjeta (con recargo) o
+  // con cheque (con el IVA sumado).
+  const montoConRecargo = esCheque
+    ? calcularMontoConRecargoCheque(montoBaseNum, recargoChequePct)
+    : calcularMontoConRecargoTarjeta(montoBaseNum, recargoTarjetaPct)
+  // El monto que se registra como pago real: con recargo si es tarjeta o
+  // cheque, igual al base para cualquier otra forma de pago.
+  const montoARegistrar = esTarjeta || esCheque ? montoConRecargo : montoBaseNum
   // La validación es siempre contra el monto BASE (lo que cancela saldo),
   // nunca contra el monto con recargo.
   const montoValido = montoBaseNum > 0 && montoBaseNum <= saldo + 0.01
@@ -165,12 +171,14 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
                   {String(pagoConfirmado.numeroRecibo).padStart(4, '0')} · Nuevo
                   saldo: ${formatMoney(totalesLuegoDePago.saldoPendiente)}
                 </p>
-                {pagoConfirmado.formaPago === 'Tarjeta' &&
+                {(pagoConfirmado.formaPago === 'Tarjeta' ||
+                  pagoConfirmado.formaPago === 'Cheque') &&
                   pagoConfirmado.montoBase != null &&
                   pagoConfirmado.montoBase < pagoConfirmado.monto && (
                     <p className="text-xs text-foreground/70 mt-1">
-                      Incluye recargo por tarjeta — del saldo se descuentan $
-                      {formatMoney(pagoConfirmado.montoBase)}.
+                      Incluye recargo por{' '}
+                      {pagoConfirmado.formaPago === 'Tarjeta' ? 'tarjeta' : 'cheque (IVA)'} —
+                      del saldo se descuentan ${formatMoney(pagoConfirmado.montoBase)}.
                     </p>
                   )}
               </div>
@@ -201,7 +209,7 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
             <SheetBody>
               <div className="grid gap-2">
                 <Label htmlFor="pago-monto">
-                  {esTarjeta ? 'Monto a cubrir del saldo' : 'Monto'}
+                  {esTarjeta || esCheque ? 'Monto a cubrir del saldo' : 'Monto'}
                 </Label>
                 <div className="flex gap-2">
                   <MoneyInput
@@ -227,11 +235,12 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
                     Supera el saldo pendiente.
                   </p>
                 )}
-                {esTarjeta && montoBaseNum > 0 && (
+                {(esTarjeta || esCheque) && montoBaseNum > 0 && (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
                     <p className="text-xs text-muted-foreground">
-                      Con tarjeta (recargo del {Math.round(recargoTarjetaPct * 100)}%), a este
-                      cliente hay que cobrarle:
+                      {esTarjeta
+                        ? `Con tarjeta (recargo del ${Math.round(recargoTarjetaPct * 100)}%), a este cliente hay que cobrarle:`
+                        : `Con cheque (IVA del ${Math.round(recargoChequePct * 100)}%), a este cliente hay que cobrarle:`}
                     </p>
                     <p className="text-base font-semibold text-primary">
                       ${formatMoney(montoConRecargo)}

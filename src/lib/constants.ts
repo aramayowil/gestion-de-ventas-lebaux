@@ -11,6 +11,7 @@ export const FORMAS_PAGO: FormaPago[] = [
   'Efectivo',
   'Transferencia',
   'Tarjeta',
+  'Cheque',
   'A convenir',
 ]
 
@@ -18,7 +19,12 @@ export const FORMAS_PAGO: FormaPago[] = [
  * incluye 'A convenir' (no aplica a un cobro real) ni 'Mixto' (cada pago
  * puntual tiene su propia forma de pago; para cubrir el saldo con más de
  * una forma, se registran pagos separados). */
-export const FORMAS_PAGO_VENTA: FormaPago[] = ['Efectivo', 'Transferencia', 'Tarjeta']
+export const FORMAS_PAGO_VENTA: FormaPago[] = [
+  'Efectivo',
+  'Transferencia',
+  'Tarjeta',
+  'Cheque',
+]
 
 /** Configuración por defecto de la empresa — sobrescribible desde Ajustes. */
 export const EMPRESA_DEFAULT: ConfigEmpresa = {
@@ -45,6 +51,9 @@ export const SISTEMA_DEFAULT: ConfigSistema = {
   },
   // Recargo por pago con tarjeta, configurable desde Ajustes.
   recargoTarjetaPct: 0.3,
+  // Recargo por pago con cheque (traslada el IVA al cliente), configurable
+  // desde Ajustes. Por defecto igual al IVA base del sistema.
+  recargoChequePct: 0.21,
 }
 
 /** Etiquetas de estado de presupuesto (solo para UI). */

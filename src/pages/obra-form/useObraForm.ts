@@ -36,7 +36,12 @@ import {
 } from '@/hooks/queries'
 import { useBorradorStore } from '@/lib/stores/borrador-store'
 import { useDescripcionesStore } from '@/lib/stores/descripciones-store'
-import { calcularTotalesObra, calcularMontoConRecargoTarjeta, formatMoney } from '@/lib/obra-totales'
+import {
+  calcularTotalesObra,
+  calcularMontoConRecargoTarjeta,
+  calcularMontoConRecargoCheque,
+  formatMoney,
+} from '@/lib/obra-totales'
 import {
   nuevaObra,
   nuevaTipologia,
@@ -380,11 +385,14 @@ export function useObraForm({ clienteId, obraId, isDesktop, onVolver, onFinaliza
     if (pagoRecienCreado) return pagoRecienCreado
 
     // `pagoInicialNum` es siempre el monto BASE (lo que cubre del saldo).
-    // Si la forma es Tarjeta, el monto REAL registrado incluye el recargo.
+    // Si la forma es Tarjeta o Cheque, el monto REAL registrado incluye
+    // el recargo correspondiente.
     const montoReal =
       pagoInicialForma === 'Tarjeta'
         ? calcularMontoConRecargoTarjeta(pagoInicialNum, sistemaAjustes.recargoTarjetaPct)
-        : pagoInicialNum
+        : pagoInicialForma === 'Cheque'
+          ? calcularMontoConRecargoCheque(pagoInicialNum, sistemaAjustes.recargoChequePct)
+          : pagoInicialNum
 
     // Caso 4: actualizar pago existente
     if (primerPagoExistente) {
