@@ -38,7 +38,7 @@ En la práctica esto significa:
   saltar entre 3 archivos para entender qué pasa. Este proyecto ya tiene
   el ejemplo contrario documentado: `useNuevoClienteModal` (ver
   `hooks/use-nuevo-cliente-modal.tsx`) se creó recién cuando la
-  duplicación *real* apareció en 2 lugares con lógica idéntica — no
+  duplicación _real_ apareció en 2 lugares con lógica idéntica — no
   antes, "por las dudas".
 - **Comentá el porqué, no el qué.** El código ya dice qué hace; lo que
   no dice es por qué se decidió hacerlo así, qué alternativa se
@@ -174,15 +174,15 @@ transiciones automáticas. Antes de tocar nada relacionado, leé
 `src/lib/types.ts` (comentario sobre `EstadoPresupuesto`) y
 `src/hooks/use-auto-rechazo-presupuestos.ts`.
 
-| Acción | Estado resultante |
-|---|---|
-| Crear obra sin pago inicial | `borrador` |
-| Crear obra con pago inicial | `aceptado` (se asume venta directa) |
-| Enviar presupuesto (PDF o WhatsApp) desde `borrador` | `pendiente` |
-| Marcar manualmente como aceptado (desde el perfil del cliente) | `aceptado` |
-| Marcar manualmente como rechazado | `rechazado` |
+| Acción                                                                 | Estado resultante                       |
+| ---------------------------------------------------------------------- | --------------------------------------- |
+| Crear obra sin pago inicial                                            | `borrador`                              |
+| Crear obra con pago inicial                                            | `aceptado` (se asume venta directa)     |
+| Enviar presupuesto (PDF o WhatsApp) desde `borrador`                   | `pendiente`                             |
+| Marcar manualmente como aceptado (desde el perfil del cliente)         | `aceptado`                              |
+| Marcar manualmente como rechazado                                      | `rechazado`                             |
 | `pendiente` + N días sin aceptar (configurable en Ajustes, default 14) | `rechazado` automático, al abrir la app |
-| Reenviar un presupuesto `rechazado` o `pendiente` | vuelve a `pendiente` |
+| Reenviar un presupuesto `rechazado` o `pendiente`                      | vuelve a `pendiente`                    |
 
 Notas importantes:
 
@@ -190,7 +190,7 @@ Notas importantes:
   `components/auth/RequireAuth.tsx`), **no** desde `App.tsx` — se
   ejecuta en cada navegación autenticada, no solo al arrancar la app.
 - "Registrar pago" solo se habilita cuando `estadoPresupuesto ===
-  'aceptado'`. No relajes esa regla sin entender por qué existe: evita
+'aceptado'`. No relajes esa regla sin entender por qué existe: evita
   cobrar por algo que el cliente todavía no aceptó.
 - Los cálculos de totales (descuento, IVA, saldo pendiente) viven
   **todos** en `src/lib/obra-totales.ts`, centralizados. Si necesitás
@@ -215,7 +215,7 @@ Notas importantes:
   comentarios viejos en el código (ver 4.7)
 - **TanStack Query (`@tanstack/react-query`)** para leer/escribir datos
   del servidor, con cache automático
-- **Zustand** — pero *solo* para estado de UI/sesión, no para datos de
+- **Zustand** — pero _solo_ para estado de UI/sesión, no para datos de
   negocio (ver 4.6)
 - **`@react-pdf/renderer`** para generar los PDFs de presupuesto,
   comprobante y recibo, importado dinámicamente (lazy) para no inflar
@@ -379,10 +379,10 @@ Todos los hooks de datos siguen la misma convención, entidad por
 entidad:
 
 ```ts
-useXxx()          // useQuery: leer (cache automático)
-useCreateXxx()    // useMutation: crear (invalida cache al terminar)
-useUpdateXxx()    // useMutation: actualizar (invalida cache al terminar)
-useDeleteXxx()    // useMutation: eliminar (invalida cache al terminar)
+useXxx() // useQuery: leer (cache automático)
+useCreateXxx() // useMutation: crear (invalida cache al terminar)
+useUpdateXxx() // useMutation: actualizar (invalida cache al terminar)
+useDeleteXxx() // useMutation: eliminar (invalida cache al terminar)
 ```
 
 Cada entidad tiene además una función `mapXxx()` privada que traduce
@@ -417,10 +417,11 @@ Hay dos roles (`Rol` en `types.ts`): `admin` y `vendedor`.
 
 ### 4.10 — Base de datos
 
-El schema completo de Postgres está en `src/sql/schema.sql` (9 tablas:
+El schema completo de Postgres está en `src/sql/schema.sql` (10 tablas:
 `users`, `clientes`, `ajustes`, `obras`, `tipologias`, `pagos`,
-`remitos`, `turnos`, `borradores`). Si cambiás algo del modelo de
-datos, el cambio tiene que reflejarse en 3 lugares a la vez:
+`remitos`, `turnos`, `borradores`, `links_cortos`). Si cambiás algo del
+modelo de datos, el cambio tiene que reflejarse en 3 lugares a la vez:
+
 1. `src/lib/types.ts` (el tipo de TypeScript)
 2. `src/sql/schema.sql` (la tabla de Postgres)
 3. El `mapXxx()` correspondiente en `hooks/queries.ts`
@@ -432,6 +433,27 @@ base inexistente). Al momento de escribir esto no hay un
 `.env.example` en el repo; si te toca configurar el entorno desde cero,
 vas a necesitar pedir esas credenciales o crear tu propio proyecto de
 Supabase y correr `schema.sql` contra él.
+
+### 4.11 — Netlify Functions (fuera de `src/`, no confundir con Edge Functions de Supabase)
+
+Además de la Edge Function de Supabase (`supabase/functions/crear-vendedor/`,
+que corre en la infraestructura de Supabase), el proyecto tiene
+**Netlify Functions** en `netlify/functions/`, que corren en la
+infraestructura de Netlify junto al sitio estático. Ambas usan el
+mismo patrón de seguridad: reciben la Service Role Key de Supabase por
+variable de entorno y bypassean RLS a propósito, porque el cliente
+autenticado normal no tiene (ni debe tener) permisos para esa
+operación.
+
+`netlify/functions/` está **fuera** de `src/` y del `include` de
+`tsconfig.app.json` — no forma parte del build de Vite (`tsc -b && vite
+build`). Netlify las compila por su cuenta al deployar, detectándolas
+automáticamente vía `functions = "netlify/functions"` en
+`netlify.toml`.
+
+Documentación completa del primer uso de este patrón (acortador de
+links para compartir PDFs por WhatsApp con dominio propio en vez de la
+URL larga de Supabase Storage): **`docs/acortador-de-links.md`**.
 
 ---
 
@@ -522,14 +544,28 @@ src/
 │   ├── obra-totales.ts         # TODOS los cálculos de plata + helpers de WhatsApp/fecha
 │   ├── storage-keys.ts         # claves de localStorage (solo para borradores)
 │   ├── supabase-client.ts      # cliente Supabase + persistencia/refresh de sesión
-│   ├── pdf-generate.tsx
+│   ├── pdf-generate.tsx        # genera/sube PDFs + acorta el link (ver link-corto.ts)
+│   ├── link-corto.ts           # cliente del acortador de links (ver docs/acortador-de-links.md)
 │   ├── utils.ts                # cn() — merge de clases Tailwind
 │   └── stores/
 │       ├── auth-store.ts        # sesión, perfil e inicialización global (Zustand)
 │       └── borrador-store.ts    # drafts de formularios de obra (Zustand + localStorage)
 │
 └── sql/
-    └── schema.sql               # schema completo de Postgres (9 tablas)
+    └── schema.sql               # schema completo de Postgres (10 tablas)
+```
+
+```
+netlify/
+└── functions/                  # Netlify Functions (NO forman parte del build de Vite,
+    ├── acortar-link.ts           # ver sección 4.11). Corren con Service Role Key.
+    └── l.ts                     # redirector de links cortos (/l/:codigo)
+
+docs/                           # documentación de features puntuales, más detallada
+└── acortador-de-links.md         # de lo que entra cómodo en este archivo. Sumar acá
+                                   # cuando un feature tenga varias piezas móviles
+                                   # (DB + función serverless + frontend) que valga la
+                                   # pena explicar con su propio diagrama de flujo.
 ```
 
 ---
