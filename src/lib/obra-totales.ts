@@ -528,23 +528,21 @@ export function construirMensajePresupuesto(opts: {
    * mensaje queda igual que antes (solo texto, sin link). */
   linkPdf?: string
 }): string {
+  const SEP = '┄'.repeat(18)
   const lineas: string[] = []
   lineas.push(`*${opts.nombreEmpresa}*`)
-  lineas.push(`Presupuesto para *${opts.nombreCliente}*`)
-  lineas.push('')
-  lineas.push('─'.repeat(20))
-  lineas.push('')
+  lineas.push(`Presupuesto — *${opts.nombreCliente}*`)
+  lineas.push(SEP)
 
-  opts.items.forEach((it, i) => {
+  opts.items.forEach((it) => {
     if (!it.descripcion.trim()) return
     const subtotal = it.cantidad * it.precioUnitario
-    lineas.push(`${i + 1}. ${it.cantidad}x ${it.descripcion}`)
+    lineas.push(`• ${it.cantidad}x ${it.descripcion}`)
     lineas.push(`   $${formatMoney(subtotal)}`)
   })
 
-  lineas.push('')
-  lineas.push('─'.repeat(20))
-  lineas.push(`Total bruto: $${formatMoney(opts.totalBruto)}`)
+  lineas.push(SEP)
+  lineas.push(`Subtotal: $${formatMoney(opts.totalBruto)}`)
   if (opts.descuentoMonto > 0) {
     lineas.push(
       `Descuento (${Math.round(opts.descuentoPct * 100)}%): −$${formatMoney(opts.descuentoMonto)}`,
@@ -558,13 +556,14 @@ export function construirMensajePresupuesto(opts: {
   const totalFinal = opts.incluyeIva
     ? (opts.totalConIva ?? opts.totalConDescuento)
     : opts.totalConDescuento
+  lineas.push('')
   lineas.push(`*TOTAL: $${formatMoney(totalFinal)}*`)
   if (!opts.incluyeIva && opts.mostrarPrecioConIva && opts.ivaBasePctSistema) {
     const precioConIva = calcularPrecioFinalConIva(
       totalFinal,
       opts.ivaBasePctSistema,
     )
-    lineas.push(`PRECIO CON IVA: $${formatMoney(precioConIva)}`)
+    lineas.push(`Precio con IVA: $${formatMoney(precioConIva)}`)
   }
   if (opts.nota && opts.nota.trim()) {
     lineas.push('')
@@ -576,7 +575,7 @@ export function construirMensajePresupuesto(opts: {
     lineas.push('')
     lineas.push(`📄 Ver PDF: ${opts.linkPdf}`)
     lineas.push(
-      `_Este link es válido por 30 días. Si venció, solicitá uno nuevo a ${opts.nombreEmpresa}._`,
+      `_Válido por 30 días. Si venció, solicitá uno nuevo a ${opts.nombreEmpresa}._`,
     )
   }
   return lineas.join('\n')
@@ -598,11 +597,11 @@ export function construirMensajeComprobante(opts: {
   /** Link de descarga del PDF (signed URL de Supabase Storage, 30 días). */
   linkPdf: string
 }): string {
-  const nro = String(opts.numeroRecibo).padStart(4, '0')
+  const SEP = '┄'.repeat(18)
   const lineas: string[] = []
   lineas.push(`*${opts.nombreEmpresa}*`)
-  lineas.push(`Recibo N° ${nro} — *${opts.nombreCliente}*`)
-  lineas.push('')
+  lineas.push(`Pago registrado — *${opts.nombreCliente}*`)
+  lineas.push(SEP)
   lineas.push(`Pago recibido: $${formatMoney(opts.montoPago)}`)
   if (opts.formaPago) {
     lineas.push(`Forma de pago: ${opts.formaPago}`)
@@ -617,7 +616,7 @@ export function construirMensajeComprobante(opts: {
   lineas.push('')
   lineas.push(`📄 Ver PDF: ${opts.linkPdf}`)
   lineas.push(
-    `_Este link es válido por 30 días. Si venció, solicitá uno nuevo a ${opts.nombreEmpresa}._`,
+    `_Válido por 30 días. Si venció, solicitá uno nuevo a ${opts.nombreEmpresa}._`,
   )
   return lineas.join('\n')
 }
