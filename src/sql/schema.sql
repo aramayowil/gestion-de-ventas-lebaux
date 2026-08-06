@@ -799,3 +799,48 @@ where a.vendedor_id is not null
     a.actualizado_en < b.actualizado_en
     or (a.actualizado_en = b.actualizado_en and a.id < b.id)
   );
+
+
+-- ════════════════════════════════════════════════════════════════
+-- MIGRACIÓN: links_cortos (acortador de PDFs para WhatsApp)
+-- ════════════════════════════════════════════════════════════════
+-- Guarda la relación código-corto → signed URL larga de Supabase
+-- Storage. El redirector (Netlify Function) busca por `codigo` y
+-- hace un 302 a `url_destino`. Así el link que viaja por WhatsApp
+-- queda con el dominio propio, corto, en vez de la URL fea de
+-- Supabase con el token de firma expuesto.
+--
+-- No usamos RLS restrictiva de "propio vendedor" acá porque la
+-- función de redirect corre con la Service Role Key desde el
+-- backend (Netlify Function), no desde el cliente autenticado —
+-- similar al patrón ya usado en la Edge Function `crear-vendedor`.
+create table if not exists public.links_cortos (
+  id             uuid primary key default uuid_generate_v4(),
+  codigo         text not null unique,
+  url_destino    text not null,
+  -- Referencia informativa a qué comprobante corresponde (para poder
+  -- reutilizar el mismo código si se regenera el mismo PDF en vez de
+  -- crear uno nuevo cada vez). No es una FK dura: el path de storage
+  -- (obra_id/pago-XXXX-tipo.pdf) ya identifica el recurso, así que
+  -- guardamos ese path tal cual en vez de referenciar la tabla obras.
+  storage_path   text,
+  creado_en      timestamptz not null default now(),
+  -- Igual que la signed URL que envuelve, el link corto expira: si
+  -- alguien lo abre pasado este momento, el redirector debe rechazarlo
+  -- en vez de mandar a una signed URL de Supabase ya vencida (o peor,
+  -- a una que fue renovada y ahora apunta a otro contenido).
+  expira_en      timestamptz not null
+);
+
+comment on table public.links_cortos is 'Códigos cortos que redirigen a signed URLs de comprobantes/presupuestos en Storage, para compartir por WhatsApp con dominio propio.';
+
+create index if not exists idx_links_cortos_codigo on public.links_cortos (codigo);
+create index if not exists idx_links_cortos_storage_path on public.links_cortos (storage_path);
+
+alter table public.links_cortos enable row level security;
+
+-- Sin policies de SELECT/INSERT para el cliente autenticado: esta
+-- tabla se opera exclusivamente desde la Netlify Function con la
+-- Service Role Key (que bypassea RLS), igual que `crear-vendedor`.
+-- Si en el futuro se quisiera leer/crear desde el frontend directo,
+-- agregar acá una policy análoga a las de `ajustes`.

@@ -1,6 +1,18 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  functions = "netlify/functions"
+
+# ─── Links cortos (acortador de PDFs para WhatsApp) ───
+# /l/AB3XZ9 → función `l.ts`, que busca el código en Supabase y hace
+# un 302 a la signed URL real. Va ANTES del catch-all del SPA de más
+# abajo: los redirects de Netlify se evalúan en orden, y si el
+# catch-all fuera primero se comería esta ruta sirviendo index.html
+# en vez de ejecutar la función.
+[[redirects]]
+  from = "/l/:codigo"
+  to = "/.netlify/functions/l?codigo=:codigo"
+  status = 200
 
 # Fallback de SPA: cualquier ruta que no sea un archivo real del build
 # (JS, CSS, imágenes) sirve index.html, para que React Router pueda

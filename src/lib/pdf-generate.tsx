@@ -14,14 +14,17 @@
  * SUBIDA A SUPABASE STORAGE (para WhatsApp):
  * El bucket "comprobantes" es privado (ver src/sql/schema.sql). Subimos el
  * PDF con upsert=true (así regenerar un comprobante pisa el archivo viejo
- * en vez de acumular basura) y generamos una signed URL de 30 días — es el
- * link que se manda por WhatsApp. Nadie necesita estar logueado para abrir
- * ese link, pero deja de funcionar a los 30 días.
+ * en vez de acumular basura) y generamos una signed URL de 30 días. Esa
+ * signed URL es larga y muestra el dominio de Supabase, así que antes de
+ * devolverla la pasamos por el acortador propio (lib/link-corto.ts), que
+ * la envuelve en un link corto con nuestro dominio. Nadie necesita estar
+ * logueado para abrir ese link, pero deja de funcionar a los 30 días.
  */
 
 import { supabase } from '@/lib/supabase-client'
 import type { Cliente, ConfigEmpresa, Obra, Pago, TotalesObra } from '@/lib/types'
 import { sanitizarNombreArchivo } from '@/lib/obra-totales'
+import { acortarLink } from '@/lib/link-corto'
 
 export type TipoComprobante = 'combinado' | 'recibo-solo'
 
@@ -160,7 +163,10 @@ function pathPresupuesto(obraId: string): string {
 
 /**
  * Sube un blob al bucket "comprobantes" (upsert: pisa el archivo si ya
- * existía en ese path) y devuelve una signed URL válida por 30 días.
+ * existía en ese path), genera una signed URL válida por 30 días, y la
+ * devuelve ACORTADA (dominio propio, corta) para pegar en WhatsApp —
+ * ver lib/link-corto.ts. Si el acortador falla, devuelve la signed URL
+ * larga de Supabase tal cual (mejor un link feo que ningún link).
  * Tira un Error con mensaje legible si falla la subida o la firma —
  * pensado para mostrarse directo en un toast.
  */
@@ -183,7 +189,8 @@ async function subirComprobantePdf(blob: Blob, path: string): Promise<string> {
       `No se pudo generar el link del PDF: ${signError?.message ?? 'respuesta vacía'}`,
     )
   }
-  return data.signedUrl
+
+  return acortarLink({ urlDestino: data.signedUrl, storagePath: path })
 }
 
 /**
