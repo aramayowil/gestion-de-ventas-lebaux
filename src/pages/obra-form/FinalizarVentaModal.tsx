@@ -9,14 +9,25 @@
  * "Volver al cliente", que navega reemplazando el historial (no se puede
  * volver atrás al formulario con el botón "atrás" del navegador).
  *
- * OJO — BUG "2 MODALES" AL IMPRIMIR (ya resuelto):
+ * OJO — BUG "2 MODALES" AL IMPRIMIR:
  *   ComprobantePdfButton y ReciboPagoPdfButton abren cada uno su propio
  *   ImprimirDialog (un Dialog centrado) para elegir qué comprobante
  *   generar. Como este modal se queda abierto de fondo (no se puede
  *   cerrar), si no hacíamos nada, al tocar "Imprimir..." se veían ESTE
- *   modal Y el ImprimirDialog superpuestos al mismo tiempo. Por eso
- *   `imprimirAbierto` apaga el `open` de este Dialog mientras el hijo
- *   está abierto — se restaura solo al cerrar el ImprimirDialog.
+ *   modal Y el ImprimirDialog superpuestos al mismo tiempo.
+ *
+ *   OJO acá también — NO usar `open={open && !imprimirAbierto}` en el
+ *   <Dialog> de abajo para "resolver" esto: ComprobantePdfButton,
+ *   ReciboPagoPdfButton y el propio ImprimirDialog viven DENTRO del
+ *   contenido de este mismo Dialog. Si este Dialog se cierra
+ *   (open=false), Radix desmonta ese contenido — incluido el
+ *   ImprimirDialog que se acaba de abrir — y el modal de impresión
+ *   desaparece solo, sin volver a aparecer nunca (bug real que pasó:
+ *   "el modal de impresión se abre y se cierra inesperadamente" y la
+ *   venta queda guardada pero este modal no vuelve a mostrarse). Por
+ *   eso `imprimirAbierto` solo oculta visualmente el contenido
+ *   (`invisible`), sin tocar el `open` del Dialog — así todo sigue
+ *   montado y el ImprimirDialog funciona normal.
  */
 import * as React from 'react'
 import { CheckCircle2, ArrowRight } from 'lucide-react'
@@ -33,6 +44,7 @@ import { ReciboPagoPdfButton } from '@/components/pdf/ReciboPagoPdfButton'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePagos, useAjustes, AJUSTES_DEFAULT } from '@/hooks/queries'
 import { calcularTotalesObra, formatMoney } from '@/lib/obra-totales'
+import { cn } from '@/lib/utils'
 import type { Cliente, Obra, Pago } from '@/lib/types'
 
 interface Props {
@@ -63,9 +75,20 @@ export function FinalizarVentaModal({ open, obra, cliente, pagoInicial, onVolver
   })
 
   return (
-    <Dialog open={open && !imprimirAbierto} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
-        className="sm:max-w-md"
+        className={cn(
+          'sm:max-w-md',
+          // Ver comentario de archivo: se oculta SOLO visualmente (sin
+          // desmontar) mientras el ImprimirDialog hijo está abierto, para
+          // no mostrar 2 cajas superpuestas. Cerrar este Dialog con
+          // open=false en vez de esto desmontaría los botones de imprimir
+          // (y al propio ImprimirDialog) porque viven adentro de este
+          // mismo contenido — eso causaba que el modal de impresión se
+          // abriera y se cerrara solo, y que este modal ya no volviera a
+          // aparecer.
+          imprimirAbierto && 'invisible pointer-events-none',
+        )}
         onEscapeKeyDown={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
         showCloseButton={false}

@@ -2,13 +2,23 @@
  * components/lebaux/obras/RegistrarPagoModal.tsx — Modal para registrar un pago
  * adicional sobre una obra existente.
  *
- * OJO — BUG "2 MODALES" AL IMPRIMIR (ya resuelto):
+ * OJO — BUG "2 MODALES" AL IMPRIMIR:
  *   Una vez confirmado el pago, se muestra ReciboPagoPdfButton, que abre
  *   su propio ImprimirDialog (Dialog centrado) para elegir el tipo de
- *   comprobante. Como este Sheet se queda abierto detrás, sin apagarlo
+ *   comprobante. Como este Sheet se queda abierto detrás, sin ocultarlo
  *   se veían las 2 cajas a la vez (el Sheet anclado abajo en mobile +
- *   el Dialog centrado del ImprimirDialog). `imprimirAbierto` apaga el
- *   `open` de este Sheet mientras el ImprimirDialog está abierto.
+ *   el Dialog centrado del ImprimirDialog).
+ *
+ *   OJO acá también — NO usar `open={open && !imprimirAbierto}` en el
+ *   <Sheet> de abajo: ReciboPagoPdfButton y el ImprimirDialog que abre
+ *   viven DENTRO del contenido de este mismo Sheet. Si el Sheet se
+ *   cierra (open=false), Radix desmonta ese contenido — incluido el
+ *   ImprimirDialog recién abierto — y el modal de impresión desaparece
+ *   solo sin volver a aparecer (bug real: "el modal de impresión se
+ *   abre y se cierra inesperadamente", y el Sheet ya no vuelve a
+ *   mostrarse aunque el pago se haya guardado bien). Por eso
+ *   `imprimirAbierto` solo oculta visualmente el contenido
+ *   (`invisible`), sin tocar el `open` del Sheet.
  */
 
 import * as React from 'react'
@@ -28,6 +38,7 @@ import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -155,8 +166,17 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
     : null
 
   return (
-    <Sheet open={open && !imprimirAbierto} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="sm:max-w-md">
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent
+        className={cn(
+          'sm:max-w-md',
+          // Ver comentario de archivo: se oculta SOLO visualmente
+          // mientras el ImprimirDialog hijo está abierto (no se cierra
+          // este Sheet con open=false, porque desmontaría al
+          // ReciboPagoPdfButton y al ImprimirDialog que vive adentro).
+          imprimirAbierto && 'invisible pointer-events-none',
+        )}
+      >
         <SheetHeader>
           <SheetTitle className="font-display text-xl">
             {pagoConfirmado ? 'Pago registrado' : 'Registrar pago'}
