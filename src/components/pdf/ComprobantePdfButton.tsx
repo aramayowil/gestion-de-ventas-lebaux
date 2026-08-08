@@ -29,6 +29,11 @@ interface Props {
   className?: string
   /** Si es false, oculta la opción "Recibo y Condiciones de Entrega" del diálogo. */
   permitirCombinado?: boolean
+  /** Avisa al padre cuando el ImprimirDialog se abre/cierra, para que un
+   * modal padre ya abierto pueda ocultarse mientras tanto (evita el bug
+   * de "2 modales" cuando este botón vive dentro de otro modal — ver
+   * ReciboPagoPdfButton para la explicación completa). */
+  onAbrirImprimirChange?: (abierto: boolean) => void
 }
 
 export function ComprobantePdfButton({
@@ -41,8 +46,14 @@ export function ComprobantePdfButton({
   size = 'default',
   className,
   permitirCombinado = true,
+  onAbrirImprimirChange,
 }: Props) {
   const [open, setOpen] = React.useState(false)
+
+  function cambiarOpen(v: boolean) {
+    setOpen(v)
+    onAbrirImprimirChange?.(v)
+  }
 
   function handleClick() {
     if (
@@ -58,7 +69,7 @@ export function ComprobantePdfButton({
       toast.error('El monto del pago debe ser mayor a cero.')
       return
     }
-    setOpen(true)
+    cambiarOpen(true)
   }
 
   // Etiqueta accesible: combina la acción + el cliente, para que un lector
@@ -83,7 +94,7 @@ export function ComprobantePdfButton({
       </Button>
       <ImprimirDialog
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => cambiarOpen(false)}
         cliente={cliente}
         obra={obra}
         pago={pago}

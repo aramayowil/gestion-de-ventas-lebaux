@@ -8,7 +8,17 @@
  * No se puede cerrar con Escape/click afuera/X: la única salida es
  * "Volver al cliente", que navega reemplazando el historial (no se puede
  * volver atrás al formulario con el botón "atrás" del navegador).
+ *
+ * OJO — BUG "2 MODALES" AL IMPRIMIR (ya resuelto):
+ *   ComprobantePdfButton y ReciboPagoPdfButton abren cada uno su propio
+ *   ImprimirDialog (un Dialog centrado) para elegir qué comprobante
+ *   generar. Como este modal se queda abierto de fondo (no se puede
+ *   cerrar), si no hacíamos nada, al tocar "Imprimir..." se veían ESTE
+ *   modal Y el ImprimirDialog superpuestos al mismo tiempo. Por eso
+ *   `imprimirAbierto` apaga el `open` de este Dialog mientras el hijo
+ *   está abierto — se restaura solo al cerrar el ImprimirDialog.
  */
+import * as React from 'react'
 import { CheckCircle2, ArrowRight } from 'lucide-react'
 import {
   Dialog,
@@ -34,6 +44,11 @@ interface Props {
 }
 
 export function FinalizarVentaModal({ open, obra, cliente, pagoInicial, onVolverCliente }: Props) {
+  // Ver comentario de archivo: apaga este Dialog mientras el
+  // ImprimirDialog (hijo, abierto por alguno de los 2 botones de abajo)
+  // esté abierto, para no mostrar 2 modales superpuestos.
+  const [imprimirAbierto, setImprimirAbierto] = React.useState(false)
+
   // OJO: los totales se calculan con TODOS los pagos de la obra (no solo
   // `pagoInicial`). Esto importa porque "Actualizar Venta" reutiliza este
   // mismo modal: si la obra ya tenía otros pagos registrados desde antes
@@ -48,7 +63,7 @@ export function FinalizarVentaModal({ open, obra, cliente, pagoInicial, onVolver
   })
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open && !imprimirAbierto} onOpenChange={() => {}}>
       <DialogContent
         className="sm:max-w-md"
         onEscapeKeyDown={(e) => e.preventDefault()}
@@ -90,6 +105,7 @@ export function FinalizarVentaModal({ open, obra, cliente, pagoInicial, onVolver
                 size="lg"
                 className="w-full"
                 permitirCombinado
+                onAbrirImprimirChange={setImprimirAbierto}
               />
               <ReciboPagoPdfButton
                 cliente={cliente}
@@ -100,6 +116,7 @@ export function FinalizarVentaModal({ open, obra, cliente, pagoInicial, onVolver
                 variant="outline"
                 size="lg"
                 className="w-full"
+                onAbrirImprimirChange={setImprimirAbierto}
               />
             </>
           ) : (

@@ -226,19 +226,33 @@ function TipologiaRow({
             </span>
           )}
         </div>
-        <DropdownMenu>
+        {/* modal={false} + event.preventDefault() en el ítem que abre el
+            AlertDialog: evita el bug de Radix donde el DropdownMenu (modal)
+            y el AlertDialog compiten por el pointer-events del <body> al
+            abrirse uno desde el onSelect del otro, dejando la pantalla
+            congelada (no se puede tocar nada). Mismo patrón ya usado en
+            ClienteDetalle.tsx para "Eliminar cliente" — ver ese archivo. */}
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="size-11 text-muted-foreground" type="button" aria-label={`Acciones de abertura ${index + 1}`}>
               <MoreVertical className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
+            {/* Duplicar no abre ningún modal, así que no le hace falta
+                preventDefault: el onSelect normal cierra el menú y listo. */}
             <DropdownMenuItem className="min-h-11" onSelect={onDuplicate}>
               <Copy />
               Duplicar abertura
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="min-h-11 text-destructive focus:text-destructive" onSelect={pedirEliminar}>
+            <DropdownMenuItem
+              className="min-h-11 text-destructive focus:text-destructive"
+              onSelect={(event) => {
+                event.preventDefault()
+                pedirEliminar()
+              }}
+            >
               <Trash2 />
               Quitar abertura
             </DropdownMenuItem>

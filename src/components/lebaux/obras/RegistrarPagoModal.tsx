@@ -1,6 +1,14 @@
 /**
  * components/lebaux/obras/RegistrarPagoModal.tsx — Modal para registrar un pago
  * adicional sobre una obra existente.
+ *
+ * OJO — BUG "2 MODALES" AL IMPRIMIR (ya resuelto):
+ *   Una vez confirmado el pago, se muestra ReciboPagoPdfButton, que abre
+ *   su propio ImprimirDialog (Dialog centrado) para elegir el tipo de
+ *   comprobante. Como este Sheet se queda abierto detrás, sin apagarlo
+ *   se veían las 2 cajas a la vez (el Sheet anclado abajo en mobile +
+ *   el Dialog centrado del ImprimirDialog). `imprimirAbierto` apaga el
+ *   `open` de este Sheet mientras el ImprimirDialog está abierto.
  */
 
 import * as React from 'react'
@@ -78,6 +86,10 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
   const [formaPago, setFormaPago] = React.useState<FormaPago>('Efectivo')
   const [nota, setNota] = React.useState('')
   const [pagoConfirmado, setPagoConfirmado] = React.useState<Pago | null>(null)
+  // Ver comentario de archivo: apaga este Sheet mientras el
+  // ImprimirDialog (hijo, abierto por ReciboPagoPdfButton) esté abierto,
+  // para no mostrar 2 modales superpuestos.
+  const [imprimirAbierto, setImprimirAbierto] = React.useState(false)
 
   React.useEffect(() => {
     if (open) {
@@ -86,6 +98,7 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
       setFormaPago('Efectivo')
       setNota('')
       setPagoConfirmado(null)
+      setImprimirAbierto(false)
     }
   }, [open])
 
@@ -142,7 +155,7 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
     : null
 
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+    <Sheet open={open && !imprimirAbierto} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="sm:max-w-md">
         <SheetHeader>
           <SheetTitle className="font-display text-xl">
@@ -192,6 +205,7 @@ export function RegistrarPagoModal({ open, onClose, obra, pagos }: Props) {
               variant="default"
               size="lg"
               className="w-full"
+              onAbrirImprimirChange={setImprimirAbierto}
             />
             <Button
               variant="outline"
