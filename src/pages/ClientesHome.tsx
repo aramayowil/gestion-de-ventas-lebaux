@@ -206,26 +206,37 @@ export function ClientesHome({ onVerCliente }: Props) {
   }
 
   // Filtro de vendedor (solo admin), también en la URL (?vend=<id-de-un-
-  // vendedor-o-del-admin>, o ?vend=sin-asignar). No aplica para un
-  // vendedor normal: su propia lista ya viene recortada por RLS.
+  // vendedor-o-del-admin>, ?vend=todos, o ?vend=sin-asignar). No aplica
+  // para un vendedor normal: su propia lista ya viene recortada por RLS.
+  //
+  // OJO — default "Mis clientes", no "Todos":
+  //   `vend=todos` se escribe SIEMPRE de forma explícita cuando el admin
+  //   elige esa opción (ver setFiltroVendedor). Eso es a propósito: así
+  //   podemos distinguir "todavía no tocó el filtro" (sin parámetro en la
+  //   URL) de "eligió Todos a propósito" (parámetro presente). Si no
+  //   hubiéramos hecho esto, ambos casos se verían idénticos en la URL y
+  //   no habría forma de que la ausencia de filtro arranque en "Mis
+  //   clientes" — quedaría siempre en "Todos" por defecto.
   const vendParam = searchParams.get('vend')
   const filtroVendedor: FiltroVendedorId = !esAdmin
     ? FILTRO_VENDEDOR_TODOS
-    : vendParam === FILTRO_VENDEDOR_SIN_ASIGNAR
-      ? FILTRO_VENDEDOR_SIN_ASIGNAR
-      : vendParam &&
-          (vendParam === currentUser?.id ||
-            vendedores.some((v) => v.id === vendParam))
-        ? vendParam
-        : FILTRO_VENDEDOR_TODOS
+    : vendParam === null
+      ? (currentUser?.id ?? FILTRO_VENDEDOR_TODOS) // sin elegir todavía → mis clientes
+      : vendParam === FILTRO_VENDEDOR_TODOS
+        ? FILTRO_VENDEDOR_TODOS
+        : vendParam === FILTRO_VENDEDOR_SIN_ASIGNAR
+          ? FILTRO_VENDEDOR_SIN_ASIGNAR
+          : vendParam === currentUser?.id || vendedores.some((v) => v.id === vendParam)
+            ? vendParam
+            : (currentUser?.id ?? FILTRO_VENDEDOR_TODOS) // valor inválido → mis clientes
 
   const setFiltroVendedor = (next: FiltroVendedorId) => {
     const params = new URLSearchParams(searchParams)
-    if (next === FILTRO_VENDEDOR_TODOS) {
-      params.delete('vend')
-    } else {
-      params.set('vend', next)
-    }
+    // "Mis clientes" (el default) se guarda igual que cualquier otro
+    // valor explícito — no se borra el parámetro — porque si lo
+    // borráramos quedaría indistinguible de "Todos" elegido a propósito
+    // (ver comentario arriba de `filtroVendedor`).
+    params.set('vend', next)
     setSearchParams(params, { replace: true })
   }
 
@@ -417,7 +428,16 @@ export function ClientesHome({ onVerCliente }: Props) {
     [ordenTab],
   )
 
-  /* ─── Búsqueda por nombre o WhatsApp + tab activa + vendedor + orden ─── */
+  /* ─── Búsqueda por nombre o WhatsApp + tab activa + vendedor + orden ───
+   * Cuando el admin está viendo "Todos los vendedores" (filtroVendedor ===
+   * 'todos', lo que en la UI se ve como la cartera "administrada" completa),
+   * sus propios clientes van primero por defecto — el resto de la lista
+   * sigue ordenada por el criterio elegido (ordenTab) como antes, tanto
+   * dentro del grupo "míos" como en el resto. No aplica para un vendedor
+   * normal (su lista ya viene recortada a los suyos por RLS) ni cuando el
+   * admin filtró por un vendedor puntual o "sin asignar". */
+  const propiosPrimero = esAdmin && filtroVendedor === FILTRO_VENDEDOR_TODOS
+
   const filtrados = React.useMemo(() => {
     const q = normalizarTexto(busqueda)
     return resumenClientes
@@ -431,8 +451,24 @@ export function ClientesHome({ onVerCliente }: Props) {
         if (digits && r.cliente.telefonoWhatsApp.includes(digits)) return true
         return false
       })
-      .sort(comparador)
-  }, [resumenClientes, busqueda, tab, pasaTab, pasaFiltroVendedor, comparador])
+      .sort((a, b) => {
+        if (propiosPrimero) {
+          const aEsPropio = a.cliente.vendedorId === currentUser?.id
+          const bEsPropio = b.cliente.vendedorId === currentUser?.id
+          if (aEsPropio !== bEsPropio) return aEsPropio ? -1 : 1
+        }
+        return comparador(a, b)
+      })
+  }, [
+    resumenClientes,
+    busqueda,
+    tab,
+    pasaTab,
+    pasaFiltroVendedor,
+    comparador,
+    propiosPrimero,
+    currentUser,
+  ])
 
   const { abrirNuevoCliente, modalNuevoCliente } = useNuevoClienteModal(
     (cliente) => onVerCliente(cliente.id),
